@@ -54,19 +54,8 @@ graph TD
 - **Database Engine**: MySQL 8.0.
 - **Database Name**: `catms_db`.
 - **Port**: 3306.
-- **Initialization Design**: The database structure is strictly modularized into 10 sequential SQL scripts stored under `CATMS-Backend/database/`.
-
-#### Modular SQL Scripts:
-1. `01_database.sql`: Schema creation and selection context.
-2. `02_tables.sql`: Base entity table definitions.
-3. `03_constraints.sql`: Foreign keys, check constraints, and default constraints.
-4. `04_indexes.sql`: B-Tree indexes for fast search lookup.
-5. `05_views.sql`: Materialized/logical views for reporting.
-6. `06_functions.sql`: Stored functions for scalar computations.
-7. `07_procedures.sql`: Transactional stored procedures for booking operations.
-8. `08_triggers.sql`: Automated audit trails and data validation triggers.
-9. `09_seed_data.sql`: Initial reference data and test seed records.
-10. `10_tests.sql`: SQL test assertions and validation scripts.
+- **Initialization & Schema Design**: The database structure is organized into a 10-step sequential SQL script pipeline executed from `CATMS-Backend/database/`.
+  - For the complete script execution pipeline, table dependencies, and schema conventions, refer to **[Database Design & Guidelines](database_design.md)**.
 
 ---
 
