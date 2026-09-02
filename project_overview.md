@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-**MedSync / CATMS** (Clinical & Administrative Treatment Management System) is an integrated healthcare management platform designed to streamline medical channel bookings, practitioner schedules, patient clinical histories, and administrative clinic operations.
+**MedSync / CATMS** is a database-centered clinic management system for CS3043. It is intended to manage clinic branches, staff and doctors, patient records, appointments, consultations and treatments, invoices, insurance information, users, and required management reports.
 
-Developed under the **DataNexus** GitHub organization (`datanexus-cs3043`), this project represents the core deliverable for the **CS3043 Database Systems** module at the Department of Computer Science and Engineering, University of Moratuwa.
+The current React application is an early visual prototype. Its hard-coded doctors, ratings, hospitals, specialties, and booking alert demonstrate interface ideas only; they are not automatically approved system requirements.
 
 ---
 
@@ -33,23 +33,27 @@ MedSync / CATMS resolves these challenges by coupling an intuitive React fronten
 
 ## System Scope & Functional Requirements
 
-### 1. Patient Channeling & Doctor Discovery
-- Search doctors by name, medical specialty, or hospital affiliation.
-- Filter specialists across departments (Cardiology, General Practice, Neurology, Pediatrics, Dermatology, Dentistry, Ophthalmology).
-- View doctor ratings, patient review counts, consultation fees, and available time slots.
-- Real-time booking confirmation and appointment scheduling.
+### 1. Clinic and Patient Management
 
-### 2. Clinical & Treatment Administration
-- Maintain comprehensive patient profiles and medical histories.
-- Log treatment plans, diagnosis notes, and prescribed interventions.
-- Manage hospital affiliations and doctor shift rosters.
+- Manage clinic branches, staff, doctors, and specialties.
+- Register and maintain centralized patient records.
+- Maintain emergency-contact and insurance-policy information.
+- Support the approved appointment lifecycle, including creation, cancellation, rescheduling, status changes, and completion.
+- Record consultation and treatment information according to the approved ERD.
 
-### 3. Database System Architecture (CS3043 Core Focus)
-- Enforce strict relational constraints (Foreign keys, Unique checks, Domain validations).
-- Implement performance indexes on high-throughput search columns.
-- Provide database views for administrative reporting and real-time dashboard analytics.
-- Enforce business logic via stored procedures, stored functions, and database triggers.
-- Support atomic transactions for concurrent appointment bookings.
+### 2. Billing, Insurance, and Reporting
+
+- Maintain invoices and payment-summary information.
+- Support insurance-related information and claims according to the approved design.
+- Provide the required management reports.
+
+### 3. Database-System Requirements
+
+- Implement the approved relational schema.
+- Enforce primary keys, foreign keys, uniqueness, domain, and business constraints.
+- Add indexes, views, stored functions, procedures, triggers, seed data, and SQL tests where required.
+- Demonstrate transaction correctness and concurrency handling where required.
+- Validate the final implementation against Oracle MySQL 8.0/InnoDB.
 
 ---
 

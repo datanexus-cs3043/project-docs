@@ -2,7 +2,7 @@
 
 ## Architectural Overview
 
-MedSync / CATMS follows a classic multi-tier client-server architecture composed of a React frontend client, a Spring Boot REST API backend, and a MySQL relational database engine. The system is fully containerized using Docker and Docker Compose.
+MedSync / CATMS follows a classic multi-tier client-server architecture composed of a React frontend client, a Spring Boot REST API backend, and a MySQL relational database engine. Dockerfiles and a Docker Compose configuration exist for the frontend, backend, and MySQL services. Individual images have been built and run, but the complete clean three-service Compose workflow is still being verified.
 
 ```mermaid
 graph TD
@@ -17,10 +17,10 @@ graph TD
 
 ### 1. Presentation Layer (`CATMS-Frontend`)
 
-- **Framework**: React 18 with Vite build tool.
+- **Framework**: React 19.2.8 with Vite 8.2.2.
 - **Styling**: Tailwind CSS with responsive layout components.
 - **State & Routing**: Component-level React hooks (`useState`, `useMemo`), single-page application structure.
-- **Production Build**: Multi-stage Docker build utilizing `node:18-alpine` for building static assets and `nginx:alpine` for production HTTP hosting.
+- **Production Build**: Multi-stage Docker build using `node:20-alpine` for asset compilation and `nginx:alpine` for static hosting.
 - **Port Mapping**: Container port 80 mapped to host port 5173.
 
 #### Key UI Modules:
@@ -64,7 +64,7 @@ graph TD
 The entire solution is orchestrated using Docker Compose (`compose.yaml` in `CATMS-Backend`).
 
 ### Network Topology
-- **Container Network**: Custom bridge network connecting `mysql`, `backend`, and `frontend`.
+- **Container Network**: Docker Compose provides the default project network. Services communicate using Compose service names such as `mysql` and `backend`.
 - **Health Checks**: MySQL container includes `mysqladmin ping` health check to ensure database readiness before backend startup.
 - **Persistence**: Named Docker volume `mysql_data` attached to `/var/lib/mysql` to ensure persistent storage across container restarts.
 
@@ -74,9 +74,10 @@ The entire solution is orchestrated using Docker Compose (`compose.yaml` in `CAT
 
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
-| `SPRING_DATASOURCE_URL` | JDBC Connection URL | `jdbc:mysql://mysql:3306/catms_db?useSSL=false&allowPublicKeyRetrieval=true` |
-| `SPRING_DATASOURCE_USERNAME` | MySQL database user | `root` |
-| `SPRING_DATASOURCE_PASSWORD` | MySQL user password | `root` |
-| `MYSQL_ROOT_PASSWORD` | MySQL root password | `root` |
-| `MYSQL_DATABASE` | Initial database name | `catms_db` |
-| `VITE_API_BASE_URL` | API endpoint for frontend | `http://localhost:8080/api` |
+| `DB_HOST` | MySQL hostname | `localhost` locally, `mysql` in Compose |
+| `DB_PORT` | MySQL port | `3306` |
+| `DB_NAME` | Database name | `catms_db` |
+| `DB_USER` | Database username | `root` |
+| `DB_PASSWORD` | Database password | Local example value |
+| `MYSQL_ROOT_PASSWORD` | MySQL container root password | Local example value |
+| `VITE_API_BASE_URL` | Planned frontend API base URL | `http://localhost:8080/api` |

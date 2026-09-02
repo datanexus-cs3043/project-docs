@@ -10,20 +10,14 @@ As part of the **CS3043 Database Systems** module, the database design emphasize
 
 ## SQL Script Execution Pipeline
 
-All database scripts are maintained under `CATMS-Backend/database/` and must be executed in exact numeric sequence to satisfy dependency chains.
+The numbered SQL pipeline is currently an ownership and execution convention.
 
-| Script File | Responsibility | Dependencies |
-| :--- | :--- | :--- |
-| `01_database.sql` | Database schema instantiation (`CREATE DATABASE catms_db`) | None |
-| `02_tables.sql` | DDL table structure creation | `01_database.sql` |
-| `03_constraints.sql` | Foreign key references and CHECK constraints | `02_tables.sql` |
-| `04_indexes.sql` | Secondary indexes for query optimization | `02_tables.sql` |
-| `05_views.sql` | Views for reporting and data abstraction | `02_tables.sql` |
-| `06_functions.sql` | Deterministic and calculation scalar functions | `02_tables.sql` |
-| `07_procedures.sql` | Transactional stored procedures | `03_constraints.sql`, `06_functions.sql` |
-| `08_triggers.sql` | Automated audit and constraint triggers | `02_tables.sql` |
-| `09_seed_data.sql` | Reference lookup data and sample test records | `03_constraints.sql` |
-| `10_tests.sql` | Data integrity verification queries | `09_seed_data.sql` |
+At the current checkpoint:
+
+- `01_database.sql` contains database initialization.
+- `02_tables.sql` through `10_tests.sql` are placeholder or skeleton files.
+- Tables, constraints, indexes, views, functions, procedures, triggers, seed data, and SQL tests are still implementation work.
+- No database artifact should be described as implemented until it exists and has been verified against Oracle MySQL 8.0.
 
 ---
 
@@ -53,12 +47,14 @@ All database scripts are maintained under `CATMS-Backend/database/` and must be 
 - **Appointments / Bookings**: Booking transactions mapping a patient to a doctor channel slot with booking status (`PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`).
 - **Treatments & Medical Records**: Clinical visit records, diagnosis notes, prescriptions, and follow-up directives.
 
+The final entity and attribute list must follow the latest approved SRS and ERD/TA corrections. Prototype fields or older design drafts must not be promoted to schema requirements without approval.
+
 ---
 
 ## Transaction Control & Concurrency Strategy
 
 1. **Atomic Channel Booking**:
-   - Appointment slot reservations are executed via stored procedures (`07_procedures.sql`) using explicit transaction boundaries (`START TRANSACTION`, `COMMIT`, `ROLLBACK`).
+   - The approved design requires atomic appointment operations and appropriate transaction handling. The stored procedures, locking strategy, and verification tests must be implemented and validated before this behavior is described as available.
    - Row-level locking (`SELECT ... FOR UPDATE`) is applied on schedule records to prevent double-booking during concurrent patient requests.
 
 2. **Audit & Integrity Triggers**:
