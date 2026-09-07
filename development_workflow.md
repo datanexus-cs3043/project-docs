@@ -24,17 +24,32 @@ Ensure the following tools are installed on your workstation prior to setting up
    git clone https://github.com/datanexus-cs3043/project-docs.git
    ```
 
-2. Launch all containerized services via Docker Compose:
+2. Launch all containerized services via Docker Compose (run commands from `CATMS-Backend` where `compose.yaml` is located):
    ```bash
    cd CATMS-Backend
    cp .env.example .env
    docker compose up --build
    ```
 
-3. Service endpoints:
+   To stop all running services:
+   ```bash
+   docker compose down
+   ```
+
+   To stop and wipe database volumes for a clean reset:
+   ```bash
+   docker compose down -v
+   ```
+
+3. Service endpoints & verification:
    - **Frontend Application**: `http://localhost:5173`
    - **Spring Boot REST API**: `http://localhost:8080`
    - **MySQL Database**: `localhost:3306` (`catms_db`)
+
+   To inspect the running MySQL database container directly:
+   ```bash
+   docker compose exec mysql mysql -u root -prootpassword -e "SELECT VERSION(), @@version_comment; SHOW DATABASES;"
+   ```
 
 ---
 
