@@ -19,6 +19,31 @@ At the current checkpoint:
 - Tables, constraints, indexes, views, functions, procedures, triggers, seed data, and SQL tests are still implementation work.
 - No database artifact should be described as implemented until it exists and has been verified against Oracle MySQL 8.0.
 
+### Team Collaboration & Synchronization Workflow
+
+The SQL scripts in `CATMS-Backend/database/` serve as the **single source of truth** for all team members:
+
+1. **Local Container Isolation**:
+   Running queries or inserting data directly inside a running MySQL container (via CLI or a GUI client) only affects the developer's local machine. Local ad-hoc data is not automatically shared with teammates.
+
+2. **Sharing Schema Changes**:
+   Whenever a team member adds or updates a table, constraint, view, or procedure, the corresponding DDL/DML statements must be saved into the appropriate numbered script in `CATMS-Backend/database/` (e.g., `02_tables.sql`, `05_views.sql`) and pushed via a topic branch.
+
+3. **Synchronizing Teammates' Environments**:
+   When a teammate pulls changes from `main`, they recreate the database schema locally by running:
+   ```bash
+   cd CATMS-Backend
+   docker compose down -v
+   docker compose up --build
+   ```
+   The `-v` flag removes the old Docker volume so MySQL automatically re-executes all SQL scripts from `database/` in alphabetical order upon startup.
+
+4. **Interactive Queries & Scratch Testing**:
+   Developers can connect directly to their running container to test queries, inspect rows, or verify statements before committing them to the repository scripts:
+   - **CLI Prompt**: `docker compose exec mysql mysql -u root -prootpassword catms_db`
+   - **GUI Client (DBeaver / MySQL Workbench)**: Connect to `localhost:3306`, user `root`, password `rootpassword`, database `catms_db`.
+
+
 ---
 
 ## Naming Conventions & Design Standards
