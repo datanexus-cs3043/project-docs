@@ -61,18 +61,39 @@ The SQL scripts in `CATMS-Backend/database/` serve as the **single source of tru
 
 ---
 
-## Key Data Entities & Relational Structure
+## Key Data Entities & Relational Structure (Approved ER Specification)
 
-- **Users & Authentication**: Accounts storing system access role (`PATIENT`, `DOCTOR`, `ADMIN`).
-- **Doctors & Medical Specialists**: Practitioner credentials, license numbers, specialty IDs, hospital affiliations, consultation fees, and ratings.
-- **Patients**: Patient personal records, contact information, emergency contacts, and medical background.
-- **Hospitals & Clinics**: Affiliated healthcare institution profiles and location details.
-- **Specialties**: Master catalog of medical fields (Cardiology, Dermatology, Neurology, etc.).
-- **Doctor Schedules / Channels**: Consultation windows specifying date, start time, end time, maximum patient quota, and hospital location.
-- **Appointments / Bookings**: Booking transactions mapping a patient to a doctor channel slot with booking status (`PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`).
-- **Treatments & Medical Records**: Clinical visit records, diagnosis notes, prescriptions, and follow-up directives.
+The schema adheres to the TA-approved Entity-Relationship model (`external-docs/ER submission-2final_touch.pdf`) comprising 20 normalized relations:
 
-The final entity and attribute list must follow the latest approved SRS and ERD/TA corrections. Prototype fields or older design drafts must not be promoted to schema requirements without approval.
+1. **User Authentication & Session Tracking**:
+   - `user`: System user accounts, credentials, contact details.
+   - `users_logins`: Session and access logs linking users to their login timestamps.
+
+2. **Branch, Staff & Doctor Administration**:
+   - `branch`: Multi-specialty clinic facilities (Colombo, Kandy, Galle), address, contact details, and branch manager association.
+   - `staff`: Medical and non-medical employees assigned to branches, linked to user credentials with specific functional roles.
+   - `doctor`: Clinical practitioner extension linked to staff records, storing license numbers and doctor names.
+   - `specialty`: Master medical disciplines catalog (e.g., General Medicine, ENT, Paediatrics, Cardiology).
+   - `doctor_specialty`: Many-to-many bridge linking doctors to one or more practicing specialties.
+
+3. **Patient & Emergency Information**:
+   - `patient`: Centralized patient directory with demographic data, cross-branch registration, and unique patient identifiers.
+   - `emergency_contact`: Designated emergency contacts for patients with relationship and telephone details.
+
+4. **Treatment Catalogue & Clinical Records**:
+   - `treatment_category`: Broad service classifications (Consultations, Diagnostics, Procedures, Injections).
+   - `treatment`: Predefined medical service catalog with standardized service codes, names, and base prices.
+   - `appointment`: Core channeling and walk-in consultation records specifying patient, doctor, branch, date, time slots, appointment type, and reschedule links.
+   - `consultation_note`: Post-appointment clinical observations, symptoms, diagnosis, and medical advice.
+
+5. **Billing, Payments & Insurance**:
+   - `invoice`: Financial statements generated upon completed appointments, tracking total charges, amount paid, and outstanding balances.
+   - `invoice_item`: Line items capturing treatments rendered, unit prices, and quantities.
+   - `doctor_payment`: Practitioner compensation and remuneration disbursements linked to appointments and billed services.
+   - `insurance_provider`: Master catalog of registered health insurance companies.
+   - `insurance_policy`: Patient-held insurance policies with coverage terms, validity intervals, and policy numbers.
+   - `insurance_coverage`: Policy-specific coverage rules, reimbursement percentages, and maximum allowable caps per treatment.
+   - `insurance_claim`: Claims filed against invoices, recording requested reimbursements, approved amounts, and claim status.
 
 ---
 
