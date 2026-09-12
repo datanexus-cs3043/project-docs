@@ -16,32 +16,29 @@ At the current checkpoint:
 
 - `01_database.sql` contains database initialization.
 - `02_tables.sql` through `10_tests.sql` are placeholder or skeleton files.
-- Tables, constraints, indexes, views, functions, procedures, triggers, seed data, and SQL tests are still implementation work.
-- No database artifact should be described as implemented until it exists and has been verified against Oracle MySQL 8.0.
+- Tables, constraints, indexes, views, functions, procedures, triggers, seed data, and SQL tests are being implemented.
+- Database artifacts are verified against PostgreSQL (Neon Serverless PostgreSQL / local PostgreSQL 16+).
 
 ### Team Collaboration & Synchronization Workflow
 
 The SQL scripts in `CATMS-Backend/database/` serve as the **single source of truth** for all team members:
 
-1. **Local Container Isolation**:
-   Running queries or inserting data directly inside a running MySQL container (via CLI or a GUI client) only affects the developer's local machine. Local ad-hoc data is not automatically shared with teammates.
+1. **Central Cloud Database (Neon)**:
+   The team utilizes a shared PostgreSQL instance hosted on Neon (`neon.tech`). Team members connect via a secure connection string configured in `.env`.
 
 2. **Sharing Schema Changes**:
-   Whenever a team member adds or updates a table, constraint, view, or procedure, the corresponding DDL/DML statements must be saved into the appropriate numbered script in `CATMS-Backend/database/` (e.g., `02_tables.sql`, `05_views.sql`) and pushed via a topic branch.
+   Whenever a team member adds or updates a table, constraint, view, or procedure, the corresponding DDL/DML statements must be saved into the appropriate numbered script in `CATMS-Backend/database/` (e.g., `02_tables.sql`, `05_views.sql`) and pushed via a topic branch. Changes can then be applied to the shared Neon database or verified locally.
 
-3. **Synchronizing Teammates' Environments**:
-   When a teammate pulls changes from `main`, they recreate the database schema locally by running:
+3. **Local Container / Offline Execution**:
+   Developers who wish to run an offline local PostgreSQL database can use the Docker Compose setup. To recreate a clean database:
    ```bash
    cd CATMS-Backend
    docker compose down -v
    docker compose up --build
    ```
-   The `-v` flag removes the old Docker volume so MySQL automatically re-executes all SQL scripts from `database/` in alphabetical order upon startup.
 
 4. **Interactive Queries & Scratch Testing**:
-   Developers can connect directly to their running container to test queries, inspect rows, or verify statements before committing them to the repository scripts:
-   - **CLI Prompt**: `docker compose exec mysql mysql -u root -prootpassword catms_db`
-   - **GUI Client (DBeaver / MySQL Workbench)**: Connect to `localhost:3306`, user `root`, password `rootpassword`, database `catms_db`.
+   Developers can connect directly to Neon or the local PostgreSQL database using GUI clients (DBeaver, pgAdmin, VS Code Database Client) or `psql` to test queries and inspect tables before committing them to repository scripts.
 
 
 ---
