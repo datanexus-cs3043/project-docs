@@ -25,9 +25,9 @@ Healthcare facilities and outpatient channeling centers frequently encounter ope
 1. **Appointment Scheduling**: Overbooking, time slot conflicts, and inefficient queue management.
 2. **Channel Transparency**: Difficulty for patients in finding verified specialists across multiple hospitals and consultation windows.
 3. **Data Integrity & Consistency**: Managing high-concurrency appointment updates, patient records, and treatment logs while preserving relational integrity.
-4. **Administrative Overhead**: Manual record-keeping for doctor availabilities, hospital affiliations, and medical records.
+4. **Administrative Overhead**: Manual record-keeping for doctor availabilities, branch schedules, and medical records.
 
-MedSync / CATMS resolves these challenges by coupling an intuitive React frontend with a high-performance Spring Boot backend and an optimized MySQL relational database schema.
+MedSync / CATMS resolves these challenges by coupling an intuitive React frontend with a high-performance Python FastAPI backend and an optimized PostgreSQL relational database schema hosted on Neon.
 
 ---
 
@@ -53,7 +53,7 @@ MedSync / CATMS resolves these challenges by coupling an intuitive React fronten
 - Enforce primary keys, foreign keys, uniqueness, domain, and business constraints.
 - Add indexes, views, stored functions, procedures, triggers, seed data, and SQL tests where required.
 - Demonstrate transaction correctness and concurrency handling where required.
-- Validate the final implementation against Oracle MySQL 8.0/InnoDB.
+- Validate the final implementation against PostgreSQL 16+ (Neon Serverless / local container).
 
 ---
 
@@ -61,4 +61,4 @@ MedSync / CATMS resolves these challenges by coupling an intuitive React fronten
 
 - **Patients**: Search for specialists, view schedules, book channel appointments, and access booking confirmations.
 - **Doctors / Specialists**: View appointment rosters, manage consultation hours, and log patient clinical updates.
-- **Clinic Administrators**: Manage hospital affiliation data, update specialty catalogs, oversee system-wide channeling logs, and monitor database integrity.
+- **Clinic Administrators**: Manage branch clinic data, update specialty catalogs, oversee system-wide channeling logs, and monitor database integrity.
