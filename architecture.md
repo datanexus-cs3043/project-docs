@@ -8,7 +8,7 @@ MedSync / CATMS follows a multi-tier client-server architecture composed of a Re
 graph TD
     Client[Web Browser Client] -->|HTTP / REST API| Frontend[CATMS-Frontend: React / Vite / Nginx / Port 5173]
     Frontend -->|API Requests| Backend[CATMS-Backend: Python FastAPI / Port 8000]
-    Backend -->|SQLAlchemy / asyncpg Connection Pool| Database[(PostgreSQL Database - Neon Cloud / Port 5432)]
+    Backend -->|psycopg3 AsyncConnectionPool| Database[(PostgreSQL Database - Neon Cloud / Port 5432)]
 ```
 
 ---
@@ -25,9 +25,9 @@ graph TD
 
 #### Key UI Modules:
 - **Navbar & Navigation**: Sticky header with brand logo, search navigation, and user authentication actions.
-- **Hero & Doctor Search Bar**: Live search filtering by doctor name, specialty, or hospital affiliation.
-- **Specialty Catalog**: Categorized medical specialties (Cardiology, Neurology, Pediatrics, Dermatology, Dentistry, Ophthalmology).
-- **Appointment Channeling List**: Real-time listing of available doctors with rating badges, hospital affiliations, and time slots.
+- **Hero & Doctor Search Bar**: Live search filtering by doctor name, specialty, or clinic branch.
+- **Specialty Catalog**: Categorized medical specialties (General Medicine, ENT, Paediatrics, Cardiology, etc.).
+- **Appointment Channeling List**: Real-time listing of available doctors with branch locations and consultation time slots.
 - **Booking Modal**: Channel confirmation dialog capturing patient information and issuing appointment confirmation.
 
 ---
@@ -36,13 +36,19 @@ graph TD
 
 - **Runtime**: Python 3.11+.
 - **Framework**: FastAPI (`uvicorn` ASGI server).
-- **Data Access Layer**: Direct SQL queries / SQLAlchemy Core / asyncpg / psycopg.
-  - Chosen to provide lightweight, high-performance asynchronous REST endpoints while retaining explicit control over SQL queries, stored routines, transactions, and concurrency required for the CS3043 Database Systems module.
+- **Data Access Layer**: Direct raw asynchronous SQL execution with `psycopg3` (`psycopg[binary,pool]`).
+  - Implements `AsyncConnectionPool` with `row_factory=dict_row` and native `autocommit=True` connection pooling.
+  - Retains explicit control over SQL queries, stored routines, transactions, and concurrency required for the CS3043 Database Systems module.
+- **Authentication & Security**:
+  - `argon2-cffi`: Password hashing via Argon2id algorithm.
+  - `python-jose`: JWT token encoding/decoding.
+  - HttpOnly secure cookies with CSRF token verification (`X-CSRF-Token` headers).
+  - Role-Based Access Control (`Doctor`, `Staff`, `Manager`, `Patient`).
 - **Dependencies**:
   - `fastapi`: High-performance async API framework.
   - `uvicorn`: ASGI web server implementation.
-  - `pydantic`: Request validation and data serialization models.
-  - `psycopg2-binary` / `asyncpg`: PostgreSQL database driver for Python.
+  - `pydantic` & `pydantic-settings`: Request validation, settings, and serialization.
+  - `psycopg[binary,pool]`: PostgreSQL database driver and connection pool.
   - `python-dotenv`: Environment variable management.
 - **Port Mapping**: Container/service port 8000 mapped to host port 8000.
 
@@ -62,9 +68,9 @@ graph TD
 The entire solution is orchestrated using Docker Compose (`compose.yaml` in `CATMS-Backend`).
 
 ### Network Topology
-- **Container Network**: Docker Compose provides the default project network. Services communicate using Compose service names such as `mysql` and `backend`.
-- **Health Checks**: MySQL container includes `mysqladmin ping` health check to ensure database readiness before backend startup.
-- **Persistence**: Named Docker volume `mysql_data` attached to `/var/lib/mysql` to ensure persistent storage across container restarts.
+- **Container Network**: Docker Compose provides the default project network. Services communicate using Compose service names such as `postgres` and `backend`.
+- **Health Checks**: Optional local PostgreSQL container uses `pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-catms_db}` health check to ensure database readiness before backend startup.
+- **Persistence**: Named Docker volume `postgres_data` attached to `/var/lib/postgresql/data` to ensure persistent storage across local container restarts. Cloud environments connect directly to Neon over TLS.
 
 ---
 
