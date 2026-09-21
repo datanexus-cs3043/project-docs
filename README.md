@@ -20,6 +20,6 @@ Central documentation hub for **MedSync / CATMS** (Clinical & Administrative Tre
 
 ## Governance Rules
 
-1. **Consistency**: All SQL implementation scripts and Spring JDBC repositories must strictly follow [`database_design.md`](database_design.md).
+1. **Consistency**: All SQL implementation scripts and FastAPI database repositories must strictly follow [`database_design.md`](database_design.md).
 2. **Git Conventions**: All repository commits and pull requests must follow [`github_guidelines.md`](github_guidelines.md).
 3. **Review Process**: Any changes to system specifications or architectural rules must be submitted via Pull Request for team review.
