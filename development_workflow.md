@@ -4,10 +4,10 @@
 
 Ensure the following tools are installed on your workstation prior to setting up the project:
 
-- **Java Development Kit (JDK)**: Version 21 LTS
-- **Build Tool**: Apache Maven 3.9+
-- **Node.js Environment**: Node.js 18+ and npm 9+
-- **Database Server**: MySQL Server 8.0 (for local non-containerized execution)
+- **Python Runtime**: Python 3.11+ (with virtual environment tooling `venv`)
+- **Package Manager**: `pip` (Python package installer)
+- **Node.js Environment**: Node.js 20+ and npm 10+
+- **Database Server**: PostgreSQL 16+ (or access to the shared Neon Cloud instance)
 - **Containerization**: Docker Engine 24+ and Docker Compose v2+
 - **Version Control**: Git 2.40+
 
@@ -43,12 +43,12 @@ Ensure the following tools are installed on your workstation prior to setting up
 
 3. Service endpoints & verification:
    - **Frontend Application**: `http://localhost:5173`
-   - **Spring Boot REST API**: `http://localhost:8080`
-   - **MySQL Database**: `localhost:3306` (`catms_db`)
+   - **FastAPI REST API**: `http://localhost:8000` (Interactive Swagger Docs: `http://localhost:8000/docs`)
+   - **PostgreSQL Database**: `localhost:5432` (`catms_db` or Neon Cloud)
 
-   To inspect the running MySQL database container directly:
+   To inspect the running PostgreSQL database container directly:
    ```bash
-   docker compose exec mysql mysql -u root -prootpassword -e "SELECT VERSION(), @@version_comment; SHOW DATABASES;"
+   docker compose exec postgres psql -U postgres -d catms_db -c "SELECT version(); \dt;"
    ```
 
 ---
