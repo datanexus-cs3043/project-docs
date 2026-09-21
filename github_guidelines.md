@@ -65,27 +65,27 @@ ci(docker): add Dockerfile and multi-container Compose setup
 
 ## Summary
 
-Provide containerization support for building and running the backend alongside MySQL and Frontend.
+Provide containerization support for building and running the backend alongside PostgreSQL and Frontend.
 
 ## Changes
 
-- Dockerfile: Multi-stage build setup for packaging Spring Boot application.
-- .dockerignore: Exclude target directory and IDE configs from Docker build context.
-- compose.yaml: Docker Compose configuration for MySQL 8.0, Backend, and Frontend containers.
+- Dockerfile: Multi-stage build setup for packaging FastAPI application.
+- .dockerignore: Exclude venv, __pycache__, and IDE configs from Docker build context.
+- compose.yaml: Docker Compose configuration for PostgreSQL, Backend, and Frontend containers.
 ```
 
 #### Example 2: Backend Feature Setup (`feat`)
 ```text
-feat(backend): initialize Spring Boot project structure and dependencies
+feat(backend): initialize FastAPI project structure and dependencies
 
 ## Summary
 
-Set up core Spring Boot application structure, configuration, and Maven dependencies.
+Set up core FastAPI application structure, configuration, and dependencies.
 
 ## Key Additions
 
-- pom.xml: Configure dependencies for Spring Boot 3, Spring Web, Spring JDBC, MySQL Connector, and Lombok.
-- src/: Add main application class, application properties, and initial test setup.
+- requirements.txt: Configure dependencies for FastAPI, Uvicorn, psycopg3, Pydantic, and python-dotenv.
+- app/: Add main application entrypoint, core database pool, config, and initial health check route.
 ```
 
 #### Example 3: Documentation Update (`docs`)
