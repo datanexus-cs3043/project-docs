@@ -80,7 +80,7 @@ The schema adheres to the TA-approved Entity-Relationship model (`external-docs/
    - `doctor_specialty`: Many-to-many bridge linking doctors to one or more practicing specialties.
 
 3. **Patient & Emergency Information**:
-   - `patient`: Centralized patient directory with demographic data, cross-branch registration, and unique patient identifiers.
+   - `patient`: Centralized patient directory with demographic data, cross-branch registration, and optional foreign-key association (`user_id`) linking patients to self-service user accounts.
    - `emergency_contact`: Designated emergency contacts for patients with relationship and telephone details.
 
 4. **Treatment Catalogue & Clinical Records**:
