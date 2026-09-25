@@ -17,18 +17,20 @@ graph TD
 
 ### 1. Presentation Layer (`CATMS-Frontend`)
 
-- **Framework**: React 19 with Vite.
-- **Styling**: Tailwind CSS with responsive layout components.
-- **State & Routing**: Component-level React hooks (`useState`, `useMemo`), single-page application structure.
+- **Framework & Language**: React 19 with Vite and TypeScript.
+- **Styling**: Tailwind CSS with responsive layout components and CSS styling.
+- **State & Routing**: React Router v7, centralized `AuthContext` for session lifecycle, and `ProtectedRoute` enforcing role-based access control (`admin`, `branch_manager`, `doctor`, `receptionist_cashier`, `patient`).
+- **HTTP Client**: Axios with `withCredentials: true` transmitting HttpOnly authentication cookies to FastAPI.
 - **Production Build**: Multi-stage Docker build using `node:20-alpine` for asset compilation and `nginx:alpine` for static hosting.
 - **Port Mapping**: Container port 80 mapped to host port 5173.
 
 #### Key UI Modules:
-- **Navbar & Navigation**: Sticky header with brand logo, search navigation, and user authentication actions.
-- **Hero & Doctor Search Bar**: Live search filtering by doctor name, specialty, or clinic branch.
-- **Specialty Catalog**: Categorized medical specialties (General Medicine, ENT, Paediatrics, Cardiology, etc.).
-- **Appointment Channeling List**: Real-time listing of available doctors with branch locations and consultation time slots.
-- **Booking Modal**: Channel confirmation dialog capturing patient information and issuing appointment confirmation.
+- **App Shell**: Shared layout with responsive `Sidebar` and `Navbar` navigation.
+- **Authentication**: `Login` component handling credential submission and session initialization.
+- **Patient Management**: Central directory, registration form, and profile view.
+- **Doctor Channeling & Rosters**: Practitioner listings, specialty filters, and appointment scheduling forms.
+- **Billing & Finance**: Invoicing dashboard, itemized charges, and payment receipt recording.
+- **Branch & Staff Oversight**: Multi-branch roster administration and operational analytics reports.
 
 ---
 
