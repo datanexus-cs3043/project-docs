@@ -54,6 +54,17 @@ graph TD
   - `python-dotenv`: Environment variable management.
 - **Port Mapping**: Container/service port 8000 mapped to host port 8000.
 
+#### Domain API Modules & Endpoints:
+- **Authentication** (`/api/auth`): Login, logout, current user profile, CSRF token issuance.
+- **Patients** (`/api/patients`): Patient registration, central directory lookups, emergency contact management.
+- **Doctors & Specialties** (`/api/doctors`): Medical practitioner profiles, SLMC licensing, specialty mapping.
+- **Appointments** (`/api/appointments`): Slot reservations, rescheduling, cancellations, clinical consultation notes.
+- **Treatments** (`/api/treatments`): Medical service catalogue, category classifications, standard pricing.
+- **Branches & Staff** (`/api/branches`, `/api/staff`): Multi-facility management, employee records, role assignments.
+- **Billing & Payments** (`/api/billing`): Invoice generation, itemized charges, cash/card payment recording.
+- **Insurance** (`/api/insurance`): Insurance providers, patient policy coverage, claim adjudication.
+- **Operational Reports** (`/api/reports`): Management analytics querying PostgreSQL database views.
+
 ---
 
 ### 3. Data Storage Layer (`PostgreSQL` / `Neon`)
