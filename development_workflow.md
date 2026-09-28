@@ -63,6 +63,23 @@ For individual component development without Docker Compose, refer to the dedica
 
 ---
 
+## Testing & API Verification
+
+To execute automated tests and verify REST endpoints against the FastAPI backend:
+1. Ensure development and test dependencies are installed:
+   ```bash
+   cd CATMS-Backend
+   pip install -r requirements.txt pytest httpx
+   ```
+2. Run automated test suites:
+   ```bash
+   pytest
+   ```
+3. Interactive API verification:
+   Access interactive OpenAPI documentation at `http://localhost:8000/docs` to test endpoints with live parameters and cookie authentication.
+
+---
+
 ## Team Collaboration & Git Standards
 
 For commit conventions, branch naming schemes, issue tracking, and code review policies, refer to **[GitHub Collaboration & Git Conventions Guidelines](github_guidelines.md)**.
