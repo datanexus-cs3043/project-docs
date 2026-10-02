@@ -1,6 +1,6 @@
 # MedSync / CATMS - Technical Documentation
 
-Central documentation hub for **MedSync / CATMS** (Clinical & Administrative Treatment Management System), developed by **DataNexus** for **CS3043 Database Systems** at the Department of Computer Science and Engineering, University of Moratuwa.
+Central documentation hub for **MedSync / CATMS** (Clinic Appointment and Treatment Management System), developed by **DataNexus** for **CS3043 Database Systems** at the Department of Computer Science and Engineering, University of Moratuwa.
 
 ## Documentation Index
 
@@ -8,7 +8,7 @@ Central documentation hub for **MedSync / CATMS** (Clinical & Administrative Tre
 | :--- | :--- |
 | **[Project Overview](project_overview.md)** | Academic background, domain scope, key features, and stakeholder roles. |
 | **[System Architecture](architecture.md)** | Multi-tier technical stack, Docker topology, network flow, and environment settings. |
-| **[Database Design & Guidelines](database_design.md)** | 10-step SQL script pipeline, schema conventions, stored routines, and transaction rules. |
+| **[Database Design & Guidelines](database_design.md)** | Numbered SQL file organization, schema conventions, stored routines, and transaction rules. |
 | **[Development Workflow](development_workflow.md)** | Local setup prerequisites, Docker Compose execution, and local build steps. |
 | **[GitHub Collaboration & Git Conventions](github_guidelines.md)** | Combined commit conventions, branching strategy, issue tracking, and PR review rules. |
 
