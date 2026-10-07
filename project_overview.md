@@ -2,9 +2,9 @@
 
 ## Executive Summary
 
-**MedSync / CATMS** is a database-centered clinic management system for CS3043. It is intended to manage clinic branches, staff and doctors, patient records, appointments, consultations and treatments, invoices, insurance information, users, and required management reports.
+**MedSync / CATMS** is a database-centered clinic management system for CS3043. It is intended to manage clinic branches, staff and doctors, centralized patient records, appointments, consultations and treatments, invoices, insurance information, users, and management reports.
 
-The current React application is an early visual prototype. Its hard-coded doctors, ratings, hospitals, specialties, and booking alert demonstrate interface ideas only; they are not automatically approved system requirements.
+The current implementation uses **React/TypeScript, FastAPI, and PostgreSQL hosted on Neon**. The frontend contains domain pages and API service wrappers as well as a browser-local simulator. The backend contains authentication and domain endpoints, but real frontend/API integration and several business workflows remain incomplete. See [Implementation & Integration Status](implementation_status.md) for the dated checkpoint.
 
 ---
 
@@ -14,51 +14,69 @@ The current React application is an early visual prototype. Its hard-coded docto
 - **Department**: Department of Computer Science and Engineering
 - **Module**: CS3043 - Database Systems
 - **Organization**: DataNexus (`datanexus-cs3043`)
-- **Team Size**: 5 Undergraduate Software Engineering / Computer Science Students
+- **Team Size**: 5 students
+
+The module requirements, submitted SRS, final submitted ER diagram and TA feedback guide the scope. Later stack changes and team decisions must be recorded separately. The current repository schema must not be described as fully TA-approved merely because it contains 20 tables.
 
 ---
 
 ## Core Problem Statement
 
-Healthcare facilities and outpatient channeling centers frequently encounter operational bottlenecks in:
+Clinic branches and outpatient channeling services need consistent handling of:
 
-1. **Appointment Scheduling**: Overbooking, time slot conflicts, and inefficient queue management.
-2. **Channel Transparency**: Difficulty for patients in finding verified specialists across multiple hospitals and consultation windows.
-3. **Data Integrity & Consistency**: Managing high-concurrency appointment updates, patient records, and treatment logs while preserving relational integrity.
-4. **Administrative Overhead**: Manual record-keeping for doctor availabilities, branch schedules, and medical records.
+1. **Appointment Scheduling**: Booking, rescheduling, cancellations, and time-slot conflicts.
+2. **Patient Information**: A centralized patient record usable across clinic branches with appropriate access controls.
+3. **Clinical & Financial Integrity**: Linking consultations, treatments, invoice items, insurance claims, and doctor compensation without confusing their meanings.
+4. **Administrative Reporting**: Reliable appointment, revenue, outstanding-balance, treatment, and insurance summaries.
 
-MedSync / CATMS resolves these challenges by coupling an intuitive React frontend with a high-performance Python FastAPI backend and an optimized PostgreSQL relational database schema hosted on Neon.
+MedSync / CATMS aims to address these needs through a shared relational database and role-specific workflows. Concurrency safety, performance, and correct financial reconciliation are outcomes to demonstrate, not guarantees established by the stack alone.
 
 ---
 
 ## System Scope & Functional Requirements
+
+The following describes intended project scope, not a checklist of delivered features.
 
 ### 1. Clinic and Patient Management
 
 - Manage clinic branches, staff, doctors, and specialties.
 - Register and maintain centralized patient records.
 - Maintain emergency-contact and insurance-policy information.
-- Support the approved appointment lifecycle, including creation, cancellation, rescheduling, status changes, and completion.
-- Record consultation and treatment information according to the approved ERD.
+- Support the required appointment lifecycle: creation, cancellation, rescheduling, status changes, and completion.
+- Record consultation and treatment information in an agreed relational model.
 
 ### 2. Billing, Insurance, and Reporting
 
-- Maintain invoices and payment-summary information.
-- Support insurance-related information and claims according to the approved design.
-- Provide the required management reports.
+- Maintain invoices, itemized charges, payment summaries, and doctor compensation.
+- Support insurance providers, patient policies, treatment coverage, and claims.
+- Provide management reports for appointment summaries, doctor revenue, outstanding balances, treatments by category, and insurance versus out-of-pocket amounts.
+- Define receipt, claim-approval, settlement, and compensation rules explicitly. They are separate financial events; the current payment API records doctor compensation, not patient receipts.
 
 ### 3. Database-System Requirements
 
-- Implement the approved relational schema.
+- Implement and reconcile the relational schema with the submitted design and confirmed changes.
 - Enforce primary keys, foreign keys, uniqueness, domain, and business constraints.
-- Add indexes, views, stored functions, procedures, triggers, seed data, and SQL tests where required.
-- Demonstrate transaction correctness and concurrency handling where required.
-- Validate the final implementation against PostgreSQL 16+ (Neon Serverless / local container).
+- Provide indexes, views, stored functions, procedures, triggers, seed data, and SQL verification evidence where required.
+- Demonstrate atomic transactions and concurrency handling for relevant operations.
+- Retain the numbered SQL files as an accessible evaluation record. Some files are currently placeholders; this does not establish whether corresponding objects exist on Neon.
+- Target PostgreSQL compatibility as described in the repository SQL. The actual cloud version and deployed objects require separate verification.
+
+### Scope Boundaries
+
+This project concerns the clinic's branches, not integration with unrelated hospitals. Pharmacy stock, inpatient management, external laboratory/insurer integrations, and payment gateways are not part of the recorded core scope. Interface mock data and simulator rules do not add approved requirements.
 
 ---
 
 ## Key Stakeholders & Roles
 
-- **Patients**: Search for specialists, view schedules, book channel appointments, and access booking confirmations.
-- **Doctors / Specialists**: View appointment rosters, manage consultation hours, and log patient clinical updates.
-- **Clinic Administrators**: Manage branch clinic data, update specialty catalogs, oversee system-wide channeling logs, and monitor database integrity.
+The application declares **five login roles**, with receptionist and cashier combined:
+
+| Role | Intended responsibility |
+| :--- | :--- |
+| `admin` | System-wide administration, catalogues, accounts, and oversight. |
+| `branch_manager` | Branch operations, staff oversight, and management reporting within the agreed branch scope. |
+| `doctor` | Authorized appointment rosters, patient clinical information, and consultation records. |
+| `receptionist_cashier` | Registration, appointment coordination, and authorized billing operations. |
+| `patient` | Access to their own authorized appointment, profile, and billing information. |
+
+These responsibilities are a domain overview, not a complete permission matrix. Patient self-service booking, cross-branch access, account provisioning, and doctor schedule/profile editing need agreement and API support before being presented as delivered. A staff classification such as nurse does not automatically create a sixth login role.
