@@ -12,6 +12,7 @@ Central documentation hub for **MedSync / CATMS** (Clinic Appointment and Treatm
 | **[Development Workflow](development_workflow.md)** | Local setup, Docker Compose execution, and appropriately scoped verification. |
 | **[GitHub Collaboration & Git Conventions](github_guidelines.md)** | Draft commit conventions, branching, issue tracking, and PR review guidance. |
 | **[Implementation & Integration Status](implementation_status.md)** | Dated source checkpoint, frontend/backend contract gaps, and remaining verification. |
+| **[Roles, Patient Self-Service & Report Output](roles_and_reports.md)** | Five-role scope, proposed abilities versus actual permissions, deferred patient work and PDF view/download requirements. |
 
 ## Quick Repository Links
 

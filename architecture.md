@@ -4,15 +4,16 @@
 
 MedSync / CATMS follows a multi-tier client-server architecture: a React browser application, a Python FastAPI REST API, and a PostgreSQL database hosted on Neon. The current Docker Compose file starts the two application services; it does not provision PostgreSQL.
 
+**Source review: 2026-10-08, Asia/Colombo.** Backend `1405700`, frontend `018d7f3`; deployment/runtime equivalence was not checked in this documentation pass.
+
 ```mermaid
 graph TD
     Frontend[CATMS-Frontend: Vite dev server or Nginx] -->|Serves application assets| Browser[Web browser: React client]
     Browser -->|HTTP REST requests with credentials| Backend[CATMS-Backend: FastAPI]
     Backend -->|psycopg3 asynchronous SQL| Database[(PostgreSQL on Neon)]
-    Browser -.->|Current demo and fallback behavior| Local[Browser-local simulator]
 ```
 
-The simulator is a separate data source, not a cache proving successful Neon operations. [Implementation & Integration Status](implementation_status.md) records the current integration boundaries.
+Browser-local mock/database fallback and demo sessions have been removed. A failed API request must remain an error, not become simulated success. [Implementation & Integration Status](implementation_status.md) records remaining contract and verification boundaries.
 
 ---
 
@@ -30,13 +31,13 @@ The simulator is a separate data source, not a cache proving successful Neon ope
 #### Key UI Modules
 
 - **App Shell**: Shared navigation and role-specific routes.
-- **Authentication**: Login/session UI and demo sessions. Public self-registration is not implemented by the backend.
+- **Authentication**: Cookie-confirmed login/session UI. Public self-registration is not implemented by the backend.
 - **Patients & Doctors**: Directory, detail, profile, and registration/management interfaces.
 - **Appointments & Consultations**: Booking, appointment details, consultation notes, and treatment interfaces.
 - **Billing & Insurance**: Invoice, payment, policy, coverage, and claim pages.
 - **Branches, Staff & Reports**: Operational administration and management dashboards.
 
-These interfaces exist in source; their presence does not establish that all corresponding real-API workflows work. The shared Axios client currently falls back to `localDb.ts` on network errors and non-authentication 404/405/501 responses.
+These interfaces exist in source; their presence does not establish that all corresponding real-API workflows work. There is no longer an implicit `localDb.ts` fallback. Selected doctor writes obtain CSRF tokens; generic mutation helpers and several patient/billing/report contracts remain incomplete.
 
 ---
 
@@ -51,11 +52,12 @@ These interfaces exist in source; their presence does not establish that all cor
   - `argon2-cffi` supplies Argon2id hashing; authentication code also supports legacy bcrypt verification.
   - **PyJWT**, not `python-jose`, encodes and verifies JWTs.
   - The login route sets an HttpOnly cookie. Its Secure and SameSite behavior is configuration-dependent.
+  - Protected session dependencies recheck current account/profile authority rather than trusting stale JWT role/link claims alone.
   - Protected mutation routes use CSRF verification through the `X-CSRF-Token` header.
   - The five declared roles are `admin`, `branch_manager`, `doctor`, `receptionist_cashier`, and `patient`. Record ownership and branch checks are additional controls.
 - **Port Mapping**: Container port 8000; Compose exposes it on host `PORT`, default 8000.
 
-The frontend defines a CSRF-token fetch helper but does not currently attach that header to its write requests. Identity linkage, session freshness, and the final permission matrix still require review; the existence of guards is not a complete security assessment.
+Selected frontend doctor create/update requests attach user-bound CSRF tokens; generic post/put/delete helpers still omit them. Current session revalidation improves stale-authority handling but does not settle the broader account-link model or final permission matrix. The existence of guards is not a complete security assessment. The [five-role responsibility proposal](roles_and_reports.md) distinguishes intended access from current routes.
 
 #### Domain API Modules & Endpoints
 
@@ -66,13 +68,13 @@ All domain prefixes below are under the default `/api` prefix.
 | **Authentication & Users** | `/auth/login`, `/auth/logout`, `/auth/me`, `/auth/csrf`, and `/users`. No `/auth/register` route. |
 | **Patients** | `/patients`, patient-related appointments/invoices/insurance, and nested emergency contacts. |
 | **Doctors & Specialties** | `/doctors`, related resources, `/specialties`, and doctor-specialty assignments. |
-| **Appointments & Notes** | `/appointments`, emergency/reschedule actions, nested notes, and `/notes/{note_id}`. Complete/cancel actions currently return 501. |
-| **Treatments** | `/treatment-categories`, `/treatments`, and `/appointments/{appointment_id}/treatments`; the current schema supports one treatment assignment per appointment. |
+| **Appointments & Notes** | `/appointments`, emergency/reschedule actions, nested notes, and `/notes/{note_id}`. Complete/cancel API actions still return 501, despite SQL lifecycle definitions. |
+| **Treatments** | `/treatment-categories`, `/treatments`, and `/appointments/{appointment_id}/treatments`; the API retains a single-treatment contract while SQL now also defines an appointment-treatment bridge. |
 | **Branches & Staff** | `/branches`, branch-related resources, and `/staff`. |
 | **Invoices & Items** | `/invoices` and `/invoices/{invoice_id}/items`. CRUD is present; automatic generation/reconciliation is not established. |
 | **Doctor Compensation** | `/invoices/{invoice_id}/payments` and `/payments/{payment_id}`. These operate on `doctor_payment`, not patient receipts. There is no `/api/billing` router. |
 | **Insurance** | `/insurance/providers`, `/insurance/policies`, `/insurance/coverage`, and `/insurance/claims`. |
-| **Operational Reports** | Five `/reports` routes execute SQL against base tables; they do not currently call reporting views. |
+| **Operational Reports** | Five admin/manager `/reports` routes execute SQL against base tables; they do not call the six reporting views. No PDF delivery implementation was found. |
 
 ---
 
@@ -80,10 +82,14 @@ All domain prefixes below are under the default `/api` prefix.
 
 - **Cloud Hosting**: The team uses Neon for the shared PostgreSQL database.
 - **Compatibility Target**: Repository SQL headers target PostgreSQL 16+. The deployed server version was not checked in this documentation review.
-- **Schema & Evaluation Artifacts**: Numbered files organize tables, constraints, indexes, views, functions, procedures, triggers, seeds, and SQL checks.
-- **Deployment Evidence**: Repository definitions and cloud objects must be compared separately. Placeholder files are not proof that cloud objects are absent.
+- **Schema & Evaluation Artifacts**: Numbered files organize tables, constraints, indexes, views, functions, procedures, triggers, seeds and SQL checks. The 20-table base is extended in `05_views.sql` with appointment status, `appointment_treatment` and `patient_payment` before view definitions; later files define routines and triggers.
+- **Deployment Evidence**: Repository definitions and cloud objects must be compared separately. Do not recreate extensions from a base-file-only reading or assume their presence means they are deployed. `10_tests.sql` remains a placeholder.
 
 Refer to [Database Design & Guidelines](database_design.md) for schema limits, artifact status, and safe synchronization.
+
+### Deferred Report Output
+
+Future PDF viewing/downloading should consume the same agreed, server-authorized dataset as the selected on-screen report. Apply role/branch scope before rendering; PDF delivery must not become a wider-access data source. Report definitions, filters and totals come before renderer/library selection. This is a documented requirement, not an implemented component; see [Report Output](roles_and_reports.md#required-reports-and-pdf-output--deferred).
 
 ---
 

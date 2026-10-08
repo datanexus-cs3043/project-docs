@@ -126,13 +126,15 @@ On an explicitly approved development target:
 1. Check the database-dependent `/api/health` response. Root metadata reporting `online` is not a database-health check.
 2. Use `/docs` or `/api/openapi.json` to inspect actual methods, request fields, and response schemas.
 3. Use authorized test accounts and verify role/ownership denial as well as allowed behavior. Do not include tokens, passwords, or patient data in logs or review messages.
-4. For routes protected by CSRF, obtain a token from `GET /api/auth/csrf` and include `X-CSRF-Token` with the authenticated request. The frontend does not currently perform this write-header step.
-5. Confirm real API and database results without browser-local fallback. A simulator response must not be recorded as a successful Neon transaction.
+4. For routes protected by CSRF, obtain a token from `GET /api/auth/csrf` and include `X-CSRF-Token` with the authenticated request. Selected doctor create/update helpers now do this; generic frontend mutation helpers still do not. Do not assume every form inherits the corrected helper.
+5. Confirm real API and database results. Browser-local mock/database fallback and demo sessions have been removed; failed requests or empty screens after swallowed errors are not successful Neon transactions.
 
-Completion/cancellation, patient receipts, automatic billing reconciliation, and some frontend contracts remain unresolved. Do not use demo success as their acceptance evidence.
+Completion/cancellation API integration, patient-receipt workflows, automatic billing reconciliation and several frontend contracts remain unresolved. Corresponding SQL extensions/routines now exist, but their deployment and application integration are not established by file presence. PDF report viewing/download is deferred; no renderer or route is selected. See [Database Design](database_design.md) and [Roles, Patient Self-Service & Report Output](roles_and_reports.md).
 
 ---
 
 ## Team Collaboration & Git Standards
 
 Use [GitHub Collaboration & Git Conventions](github_guidelines.md) for the draft collaboration guidance. Select one agreed correction, record its expected behavior, make a focused change, verify at the appropriate level, and update the affected document. A plan or documentation update does not itself approve an application or database change.
+
+Before cross-cutting integration, obtain the existing owners' handoff, refresh the current PR/diff and agree the selected contract and reviewer. Record implementation, review, documentation and integration as distinct contributions. Do not infer task ownership or permission to start all deferred patient/report work from this guide.

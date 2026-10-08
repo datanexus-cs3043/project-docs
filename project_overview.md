@@ -4,7 +4,7 @@
 
 **MedSync / CATMS** is a database-centered clinic management system for CS3043. It is intended to manage clinic branches, staff and doctors, centralized patient records, appointments, consultations and treatments, invoices, insurance information, users, and management reports.
 
-The current implementation uses **React/TypeScript, FastAPI, and PostgreSQL hosted on Neon**. The frontend contains domain pages and API service wrappers as well as a browser-local simulator. The backend contains authentication and domain endpoints, but real frontend/API integration and several business workflows remain incomplete. See [Implementation & Integration Status](implementation_status.md) for the dated checkpoint.
+The current implementation uses **React/TypeScript, FastAPI, and PostgreSQL hosted on Neon**. The frontend contains domain pages and API service wrappers; the former local simulator/demo fallback has been removed. Authentication and selected doctor workflows have received integration corrections, while patient self-service, report contracts and other workflows remain incomplete. See [Implementation & Integration Status](implementation_status.md) for the dated checkpoint.
 
 ---
 
@@ -50,6 +50,7 @@ The following describes intended project scope, not a checklist of delivered fea
 - Maintain invoices, itemized charges, payment summaries, and doctor compensation.
 - Support insurance providers, patient policies, treatment coverage, and claims.
 - Provide management reports for appointment summaries, doctor revenue, outstanding balances, treatments by category, and insurance versus out-of-pocket amounts.
+- Generate the necessary reports as PDFs for viewing and download, as clarified on 2026-10-08. This is deferred delivery work; no PDF implementation is claimed. Data definitions and authorized scopes must be settled before formatting/export.
 - Define receipt, claim-approval, settlement, and compensation rules explicitly. They are separate financial events; the current payment API records doctor compensation, not patient receipts.
 
 ### 3. Database-System Requirements
@@ -58,7 +59,7 @@ The following describes intended project scope, not a checklist of delivered fea
 - Enforce primary keys, foreign keys, uniqueness, domain, and business constraints.
 - Provide indexes, views, stored functions, procedures, triggers, seed data, and SQL verification evidence where required.
 - Demonstrate atomic transactions and concurrency handling for relevant operations.
-- Retain the numbered SQL files as an accessible evaluation record. Some files are currently placeholders; this does not establish whether corresponding objects exist on Neon.
+- Retain the numbered SQL files as an accessible evaluation record. Views/functions/procedures/triggers and schema extensions are now present in source; their presence does not establish deployment or API integration. The SQL verification file remains a placeholder.
 - Target PostgreSQL compatibility as described in the repository SQL. The actual cloud version and deployed objects require separate verification.
 
 ### Scope Boundaries
@@ -79,4 +80,4 @@ The application declares **five login roles**, with receptionist and cashier com
 | `receptionist_cashier` | Registration, appointment coordination, and authorized billing operations. |
 | `patient` | Access to their own authorized appointment, profile, and billing information. |
 
-These responsibilities are a domain overview, not a complete permission matrix. Patient self-service booking, cross-branch access, account provisioning, and doctor schedule/profile editing need agreement and API support before being presented as delivered. A staff classification such as nurse does not automatically create a sixth login role.
+These responsibilities are a domain overview, not a grant of unrestricted operations. [Roles, Patient Self-Service & Report Output](roles_and_reports.md) consolidates the October 8 reference into five roles and records source differences. Patient is already declared; its remaining functionality is deferred, not being added as a sixth role. Self-service booking, cross-branch access, provisioning, clinical-note access and doctor schedule/profile editing require agreed policy and API support. A staff classification such as nurse does not create another login role.
