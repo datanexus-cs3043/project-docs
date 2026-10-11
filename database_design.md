@@ -1,147 +1,105 @@
-# Database Design & Guidelines - MedSync / CATMS
+# Database Design & Guidelines — MedSync / CATMS
 
-## Overview
+## Baseline and design intent
 
-The database layer is intended to support clinic appointments, patient and clinical records, billing, insurance, and analytical queries using PostgreSQL hosted on Neon.
+Source reviewed **12 October 2026**, backend `development@4f22ab4`. The numbered SQL defines **22 tables, six views, eleven functions, five procedures and eleven triggers**, including extensions after the 20-table base.
 
-For **CS3043 Database Systems**, the design must demonstrate relational structure, constraints, indexes, stored routines, and transaction correctness. A schema file alone does not demonstrate normalization, concurrency safety, or successful deployment.
+The database separates identity, branch operations, clinical activity and financial events. Constraints, stored routines and transactions complement API checks; they do not replace application authorization. The submitted ER diagram remains a design reference requiring reconciliation with later extensions.
 
----
+## Relation map
 
-## SQL Script Execution Pipeline
+| Domain | Relations | Important relationships |
+| --- | --- | --- |
+| Identity | `"user"`, `users_logins` | Accounts and login audit. Patient links directly to an optional unique `user_id`; staff account resolution uses its existing login-audit association. This legacy staff link is not a direct staff-account FK. |
+| Organization | `branch`, `staff`, `doctor`, `specialty`, `doctor_specialty` | Staff belong to branches; doctor extends staff. Doctor/specialty is many-to-many. Branch manager assignment creates a branch/staff dependency. |
+| Patients | `patient`, `emergency_contact` | Registration branch, demographics, optional account and multiple contacts. Access also depends on patient ownership or the doctor's appointment relationship. |
+| Care | `treatment_category`, `treatment`, `appointment`, `appointment_treatment`, `consultation_note` | Visits link patient/doctor/branch; multiple treatment rows store quantity and captured unit price; notes link to visits. |
+| Billing | `invoice`, `invoice_item`, `patient_payment`, `doctor_payment` | One invoice per visit. Itemized charges, signed patient ledger and doctor compensation are separate relations. |
+| Insurance | `insurance_provider`, `insurance_policy`, `insurance_coverage`, `insurance_claim` | Patient policies, treatment-specific coverage and invoice/policy claims. Approval is not cash settlement. |
 
-The numbered files in `CATMS-Backend/database/` organize implementation and evaluation evidence. They are not an automatically executed migration pipeline.
+Identifiers generally use singular `snake_case`; retain established names such as `users_logins`. Quote PostgreSQL's `"user"` table. Most keys are identity integers; `doctor_specialty` uses a composite key.
 
-**Repository checkpoint: 2026-10-08, backend `main` at `1405700`.** No Neon schema inspection or SQL execution was performed for this documentation review. The October 7 placeholder-only description of files 05–08 is superseded.
+### Modeling decisions
 
-| File | Observed repository content / Intended purpose |
-| :--- | :--- |
-| `01_database.sql` | Database creation and destructive table cleanup statements. Not a safe routine initialization command for the shared database. |
-| `02_tables.sql` | 20 base table definitions, using identity keys where applicable and a composite key for `doctor_specialty`. This is not the entire schema: later files add status and two tables. Reconcile later changes with the submitted ER and recorded decisions. |
-| `03_constraints.sql` | Adds the branch-manager foreign key after the mutually dependent branch/staff tables exist. |
-| `04_indexes.sql` | 26 ordinary index statements plus a normalized specialty-name unique index on `LOWER(BTRIM(specialty_name))`. Presence does not establish measured performance or deployment on Neon. |
-| `05_views.sql` | Drops/redefines views, adds appointment status and its check, creates `appointment_treatment` and `patient_payment` with indexes/checks, then defines six views. This is schema-changing SQL, not just a report query. |
-| `06_functions.sql` | Eleven function definitions covering invoice recalculation/locking, receipt synchronization, appointment/treatment rules, insurance claims and doctor compensation. |
-| `07_procedures.sql` | Four procedures: `sp_record_patient_payment`, `sp_complete_appointment`, `sp_cancel_appointment` and `sp_reschedule_appointment`. |
-| `08_triggers.sql` | `btree_gist` extension, doctor/time exclusion constraint, financial/domain checks and eleven triggers using the functions above. |
-| `09_seed_data.sql` | Seed script is present; its data, credentials, execution, and suitability for a target environment were not validated in this review. |
-| `10_tests.sql` | Header-only placeholder for SQL verification evidence; no implemented assertions in this file. |
-| `migrations/20261008_specialty_name_uniqueness.sql` | Separate transaction-scoped migration for the normalized specialty-name index, with lock/statement timeouts. Committed in `ff9a26e`; Neon application is unknown. |
+- Separate provider/policy/coverage relations prevent repeating provider details on every claim; treatment categories and specialties are catalogues rather than free-text copies on every visit.
+- Doctor/specialty and appointment/treatment bridges represent multi-valued relationships without adding repeated columns to their parent records.
+- Captured treatment/invoice prices are intentional historical snapshots, not redundant copies to remove when the live catalogue changes.
+- Invoice paid amount, balance and status are stored derived values maintained by financial routines/triggers. This makes correct synchronization essential; they are not independent user-entered facts.
+- Lookup indexes support common branch, doctor, patient and invoice joins; normalized specialty uniqueness enforces a data rule as well as providing a lookup structure. The doctor/time exclusion constraint is an integrity mechanism, not merely a performance index.
+- The legacy staff/login-audit association and mutable coverage rules remain design limitations. This document does not certify every relation as fully normalized or every historical business rule as versioned.
 
-The numbered files are evaluation locations, not interchangeable deployment commands. Source definitions now exist for routines/reporting and several extensions, while `10_tests.sql` is still a placeholder. Neither definitions nor placeholders establish the actual Neon state. Do not duplicate existing objects from a base-file-only reading or invent verification evidence.
+### Clinical and billing boundaries
 
-### Extensions and Reporting Views
+- `appointment.status` is Scheduled, Completed or Cancelled. Rescheduling preserves `original_appointment_id`.
+- `appointment_treatment` holds unique appointment/treatment pairs, positive quantities, nonnegative captured prices and at most one primary treatment. The legacy `appointment.treatment_id` is retained and synchronized with the primary service.
+- Changing a catalogue price does not reprice previously captured visit treatments or issued items.
+- Completion requires a treatment or consultation evidence; generation additionally requires a completed appointment with a treatment-bridge row. A note-only completed visit cannot be invoiced until a treatment is recorded.
+- `sp_generate_invoice` copies recorded quantities/prices into invoice items and prevents a second invoice for the same visit. Issued items are immutable through the application item-write endpoints.
+- SQL uses `unitprice`; the appointment-treatment API exposes `unit_price`. Do not silently rename persisted columns to match a client field.
 
-The six defined views are `v_branch_daily_appointment_summary`, `v_invoice_totals`, `v_doctor_revenue`, `v_outstanding_balances`, `v_treatment_category_usage` and `v_insurance_vs_out_of_pocket`. They depend on base and extension objects. Current report API handlers still query base tables rather than these views, so their result definitions are not automatically aligned.
+### Financial meanings
 
-Appointment status and patient receipts are present in repository SQL but not consistently exposed by the existing APIs. In particular, complete/cancel handlers still return 501, treatment endpoints retain the single-FK contract, and `/payments` endpoints still operate on doctor compensation. Verify the selected API/schema contract before proposing more tables or claiming feature completion.
+| Quantity/event | Meaning |
+| --- | --- |
+| Billed amount | Sum of invoice-item quantity × unit price. There is no stored `invoice.total_amount` column in the baseline. |
+| Patient paid | Net signed `patient_payment` ledger; payment/refund/adjustment rows are distinct types. |
+| Balance and status | Recalculated from charges and the patient ledger; API callers cannot directly replace them. |
+| Doctor compensation | `doctor_payment`; not patient money received and not the doctor-revenue report's billed total. |
+| Claim approval | Manual approval of an insurance request; does not create a receipt, settle insurer cash or automatically reduce invoice balance. |
 
-### Team Collaboration & Synchronization Workflow
+The public receipt API records positive payments through `sp_record_patient_payment`. Ledger support for refund/adjustment types is **not** a claim that a dedicated correction UI/API is implemented. An uncertain payment outcome must be reconciled before recording another receipt.
 
-1. **Central Cloud Database (Neon)**:
-   Use the authorized database through backend environment configuration. Connection details and application secrets must stay outside shared documentation and frontend assets.
+Insurance follows the explicit per-policy/invoice rules in [Roles and Reports](roles_and_reports.md). Annual entitlement, settlement and coverage-rule versioning are absent. The newest trigger migration is a release prerequisite, not an already installed rule.
 
-2. **Sharing Schema Changes**:
-   Review the requirement, affected relations, API contract, existing cloud state and safe migration before making a database change. Record confirmed DDL and how it was applied. Repository and cloud state can differ; neither should silently overwrite the other. Check dependencies and existing data before applying extensions, exclusion constraints or uniqueness. An existing migration is not permission to run it.
+## SQL artifact organization
 
-3. **Local Container / Offline Execution**:
-   The current Compose setup has no PostgreSQL container or database volume. An isolated local PostgreSQL environment would require separate setup. Do not use `docker compose down -v` as a database-reset instruction for this project.
+These are review/setup artifacts, **not** an automatically executed deployment pipeline.
 
-4. **Interactive Queries & Scratch Testing**:
-   Schema-only inspection can use an authorized SQL client or sanitized export. Data-changing experiments, resets and seeds need an explicitly approved isolated target. Do not blindly execute `01_database.sql` or the entire numbered sequence on Neon. `05_views.sql` also contains view drops and schema changes; its filename does not make it a safe read-only operation.
+| File | Content and operational caution |
+| --- | --- |
+| `01_database.sql` | Database creation and destructive table cleanup. Never run on the populated shared database as routine setup. |
+| `02_tables.sql` | Twenty base tables, keys and checks; not the complete extended schema. |
+| `03_constraints.sql` | Adds the branch-manager relationship after mutually dependent tables exist. |
+| `04_indexes.sql` | Foreign-key/query lookup indexes and normalized specialty-name uniqueness using `LOWER(BTRIM(specialty_name))`. |
+| `05_views.sql` | Appointment status, treatment bridge, receipt ledger, supporting constraints/indexes and six views. Contains view drops; not a read-only report script. |
+| `06_functions.sql` | Eleven functions for financial synchronization, appointment/treatment validation and claim/compensation rules. |
+| `07_procedures.sql` | `sp_record_patient_payment`, `sp_complete_appointment`, `sp_cancel_appointment`, `sp_reschedule_appointment`, `sp_generate_invoice`. |
+| `08_triggers.sql` | Eleven triggers, domain checks and `btree_gist` doctor/time exclusion enforcement. |
+| `09_seed_data.sql` | Fixed-ID sample data. Do not replay into an existing shared dataset or overwrite current accounts. |
+| `10_tests.sql` | Implemented assertions for lifecycle/schema readiness, sample data, treatment synchronization, ledger reconciliation, overlaps and required views. Not a placeholder and not proof it passed on a given target. |
 
----
+The six views are `v_branch_daily_appointment_summary`, `v_invoice_totals`, `v_doctor_revenue`, `v_outstanding_balances`, `v_treatment_category_usage` and `v_insurance_vs_out_of_pocket`. The API uses the branch-summary and outstanding views; other report routes use their own queries. Matching view and report names does not establish identical semantics.
 
-## Naming Conventions & Design Standards
+### Forward migrations
 
-These are conventions for review, not a claim that every existing definition already follows them.
+| Migration | Purpose | Current evidence boundary |
+| --- | --- | --- |
+| `20261008_specialty_name_uniqueness.sql` | Normalized specialty-name uniqueness. | Existing source migration; target installation must be checked before replay. |
+| `20261010_generate_invoice.sql` | Completed-visit invoice generation from captured treatments. | Existing source migration; verify target procedure definition. |
+| `20261012_insurance_claim_coverage.sql` | Replaces claim-validation function/trigger for coverage, reservations, immutable invoice/policy identity and legacy rejection handling. | **Committed, unapplied and not PostgreSQL-compiled at this checkpoint.** |
 
-### 1. Identifier Conventions
+The latest migration changes a function/trigger only; it does not delete, backfill or rewrite patient/financial records. Existing numbered claim definitions differ: replaying old functions/triggers after this migration would undo its rules. Apply approved migrations chronologically after their required baseline, on a separately authorized target.
 
-- **Tables**: Singular `snake_case` nouns where consistent with the existing schema. Retain existing names such as `users_logins`; quote PostgreSQL's `"user"` identifier in SQL.
-- **Columns**: Descriptive `snake_case` names, following the agreed schema and API mapping.
-- **Primary Keys**: Usually `<entity>_id` identity integers; bridge relations may use a composite key.
-- **Foreign Keys**: Usually `<referenced_entity>_id`, with explicit relationship semantics.
+A recorded **11 October QA reconciliation** established the extended schema and added synthetic linked data while preserving existing records. It predates the newest insurance migration and is not a fresh cloud inspection or a complete browser/API acceptance result. Account details and connection credentials are not part of this repository.
 
-### 2. Constraint Naming
+## Transactions and concurrency
 
-- **Foreign Keys**: Prefer `fk_<source_table>_<referenced_table>`.
-- **Unique Constraints**: Prefer `uq_<table_name>_<column_name>`.
-- **Indexes**: Prefer `idx_<table_name>_<column_name>`.
+- Backend mutations explicitly scope transactions around multi-statement work. Exceptions must roll back before translating known database errors into API responses.
+- Booking checks doctor/branch relationships and overlaps; the database exclusion constraint protects overlapping non-cancelled doctor slots when installed. Verify competing sessions, not only sequential requests.
+- Registration creates account, patient and optional contact atomically. Account writers serialize cross-column case-insensitive username/email checks; legacy ambiguous accounts are not automatically repaired.
+- Invoice/payment mutations lock the financial parent and recalculate derived values through routines/triggers. Verify partial payment, overpayment rejection and rollback on the installed PostgreSQL definitions.
+- The new insurance migration requires **Read Committed**. Direct claim-update writers must pre-lock the invoice before the claim row; coverage writers must lock their parent policy before changing rules. Unsupported isolation is rejected. Actual PostgreSQL concurrent-session behavior remains to be validated.
+- Direct SQL bypasses API role checks. Administrative access requires its own controls; triggers are not an application permission system.
 
-Names alone do not enforce a rule. Review nullability, uniqueness, valid ranges, deletion behavior, and cross-record business constraints separately.
+Indexes and request coalescing are implemented mechanisms, not measured performance gains. Collect representative `EXPLAIN (ANALYZE, BUFFERS)` results on an approved target before claiming tuning effectiveness.
 
----
+## Safe database change process
 
-## Key Data Entities & Relational Structure
+1. Confirm the exact authorized environment, current objects and existing data; use sanitized schema evidence rather than sharing credentials.
+2. Review dependencies, invariant changes, API/UI impact and migration ordering.
+3. Validate forward-only changes and relevant concurrency cases on an isolated PostgreSQL target first.
+4. Obtain target-specific approval, a recovery plan and an application window before shared writes.
+5. Record applied migration/version, post-change object checks and financial/lifecycle reconciliation.
+6. Preserve existing rows and account passwords. Do not reset/reseed, blindly run the numbered sequence or use an arbitrary rollback wrapper as proof of safety.
 
-The submitted ER diagram after TA feedback is a design reference. The following describes the **current repository definitions**, including changes that need explicit design reconciliation; it is not an assertion that every current column or rule was separately approved by the TA.
-
-1. **User Authentication & Session Tracking**:
-   - `user`: Account identity and password-hash storage.
-   - `users_logins`: User login-event records. These are audit records, not a substitute for a stable account-to-staff relationship.
-
-2. **Branch, Staff & Doctor Administration**:
-   - `branch`: Clinic branch and manager association.
-   - `staff`: Branch-assigned personnel, staff classification, and role. Its current account linkage is indirect through nullable `users_logins_id`.
-   - `doctor`: Staff extension with a unique staff link and license number.
-   - `specialty`: Medical specialty catalogue.
-   - `doctor_specialty`: Doctor/specialty many-to-many bridge.
-
-3. **Patient & Emergency Information**:
-   - `patient`: Demographics, registration branch, and an optional unique `user_id` account association with `ON DELETE SET NULL`.
-   - `emergency_contact`: Patient-associated contact details.
-   - A centralized patient directory is the intended domain model. Registration branch must not be assumed to settle the final cross-branch access policy.
-
-4. **Treatment Catalogue & Clinical Records**:
-   - `treatment_category`: Service categories.
-   - `treatment`: Service code, name, category, and standard price.
-   - `appointment`: The base file has patient, doctor, branch, date/time, type, creator, reschedule reference and one optional `treatment_id`; file 05 adds Scheduled/Completed/Cancelled status.
-   - `consultation_note`: Appointment-linked clinical text and creation timestamp.
-   - `appointment_treatment`: File 05 adds the clinical bridge with unique appointment/treatment pairs, positive quantity, nonnegative unit price and at most one primary treatment. The legacy appointment FK and API contract need reconciliation with this relation.
-   - No dedicated doctor-availability table was found in these definitions. Persisted lifecycle and multiple-treatment definitions exist in SQL, but deployment and consistent API/UI use remain to be established.
-
-5. **Billing, Payments & Insurance**:
-   - `invoice`: One invoice per appointment, staff reference, date, declared `amount_paid`, `balance`, and status. There is no stored `total_amount` column in this definition.
-   - `invoice_item`: Treatment-linked charge lines with quantity, `unitprice`, and optional description.
-   - `doctor_payment`: Doctor compensation linked to an appointment and optionally an invoice item. It is not a patient receipt ledger.
-   - `patient_payment`: File 05 adds a separate invoice-linked ledger with signed amounts, payment/refund/adjustment types and receiving-staff attribution. It is not what the legacy `/payments` APIs currently write.
-   - `insurance_provider`: Provider catalogue.
-   - `insurance_policy`: Patient/provider association, integer policy number, dates, and status.
-   - `insurance_coverage`: Policy/treatment coverage percentage and cap.
-   - `insurance_claim`: Invoice/policy association, requested amount, approved amount, date, and status.
-
-Invoice charge lines and clinical treatment records remain distinct even though a clinical bridge now exists. Claim approval, insurer settlement, patient receipts and doctor payouts must also remain distinct. Functions/triggers define financial synchronization behavior in source, but application-wide correctness, deployed behavior and any compensation formula still need evidence and agreed business meaning.
-
----
-
-## Transaction Control & Concurrency Strategy
-
-1. **Atomic Booking**:
-   - Emergency creation and rescheduling use explicit transactions and a doctor-row lock with an overlap check in application SQL.
-   - Normal appointment create/update routes do not use that same application booking guard. File 08 now defines a doctor/time-range exclusion constraint for non-cancelled appointments and appointment-validation triggers; deployment and consistent error handling across every write path remain unverified.
-   - Reschedule/completion/cancellation procedures are present in file 07. Their existence is not proof the API calls them or that they are deployed; preserve the distinction between application SQL, routine definitions and runtime behavior.
-
-2. **Mutation Integrity**:
-   - The backend pool uses autocommit. Multi-statement mutations use explicit `conn.transaction()` scopes through `database_mutation`, with rollback before known constraint errors are translated.
-   - A `SELECT ... FOR UPDATE` outside an enclosing transaction does not keep a lock across later statements. Concurrency claims need verification of the whole operation, not merely the presence of a locking query.
-
-3. **Audit & Integrity Triggers**:
-   - Trigger definitions now cover appointment validation/treatment synchronization, invoice preparation/recalculation, patient-payment synchronization, completion and claim/compensation validation. Actual deployment and whole-workflow behavior remain unverified.
-   - Compare those existing rules with the agreed lifecycle/financial invariants before adding or replacing enforcement. Avoid two divergent definitions of the same rule in API and SQL.
-
----
-
-## Database Testing & Integrity Checks
-
-The required evidence should cover:
-
-- Primary/foreign key, uniqueness, nullability, range, and business-rule enforcement.
-- Correct transaction rollback and concurrent booking behavior.
-- Reschedule history, appointment lifecycle, and authorized record access.
-- Invoice-item totals, receipts/settlement, compensation, and insurance consistency.
-- Stored routine/trigger behavior and report outputs against known expected results.
-
-`10_tests.sql` does not currently implement those checks. Earlier isolated PostgreSQL 16.15 work validated selected procedures and later specialty mutation/migration cases, not the complete current SQL pipeline, Neon deployment or all application workflows. This documentation pass did not execute SQL. Future approved verification should use isolated dummy data and a recorded source/target/version; see [Implementation & Integration Status](implementation_status.md) for provenance.
-
-Reports must have agreed grain, period, status and financial semantics before generating PDFs. Source views or a valid PDF file alone do not establish correct totals. See [Roles, Patient Self-Service & Report Output](roles_and_reports.md) for the deferred output requirement.
+Compose does not provision PostgreSQL. Further migration execution and shared data changes are separate operations from updating these documents.

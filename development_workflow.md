@@ -1,109 +1,98 @@
-# Development Workflow & Environment Setup - MedSync / CATMS
+# Development Workflow & Environment Setup — MedSync / CATMS
 
-## Prerequisites
+## Working baseline
 
-- **Python**: Python 3.11 matches the backend Docker image; use virtual environments for local dependencies.
-- **Node.js & npm**: A version compatible with the checked-out Vite package. The current Docker builder uses Node 24; the installed Vite package declares Node `^20.19.0 || >=22.12.0`.
-- **Database Access**: An authorized PostgreSQL/Neon environment. Do not use the shared database for destructive setup or experimental writes.
-- **Containerization**: Docker with Compose v2 for the containerized execution option.
-- **Version Control**: Git.
+Use the exact **`development`** branch in both application repositories. They have independent histories and should be kept side by side:
 
-Use the repository lockfile and requirements rather than installing unrelated test/build dependencies. Setup commands below are instructions for an approved development environment, not evidence that the current application has passed runtime verification.
+```text
+workspace/
+  CATMS-Backend/
+  CATMS-Frontend/
+  project-docs/
+```
 
----
+Before editing or pulling, check each repository's branch, status, current diff and intended base. Preserve contributors' uncommitted work. Where the working tree and local history permit it, update the agreed branch with `git pull --ff-only origin development`; stop on divergence rather than reset or discard changes.
 
-## Local Development Execution
+Hosted main is a separate release baseline. The [GitHub Guidelines](github_guidelines.md) describe the main-merge authorization boundary.
 
-### Option 1: Application Services with Docker Compose
+## Prerequisites and configuration
 
-1. Keep the repositories side by side under a common workspace directory:
+- Python 3.11 and a backend virtual environment.
+- Node/npm compatible with the checked-out Vite version; the frontend Docker builder uses Node 24.
+- Docker with Compose v2 if using containers.
+- Git and authorized PostgreSQL access. Compose does not provide a database.
 
-   ```text
-   workspace/
-     CATMS-Backend/
-     CATMS-Frontend/
-     project-docs/
-   ```
+Use the existing lockfile/requirements. Do not install unrelated tooling merely to reproduce an old guide.
 
-   For a fresh workspace:
+From a fresh backend checkout, prepare configuration without overwriting an existing file:
 
-   ```bash
-   git clone https://github.com/datanexus-cs3043/CATMS-Backend.git
-   git clone https://github.com/datanexus-cs3043/CATMS-Frontend.git
-   git clone https://github.com/datanexus-cs3043/project-docs.git
-   ```
+```powershell
+if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+```
 
-2. From `CATMS-Backend`, prepare backend configuration without overwriting an existing `.env`. PowerShell example:
+Configure the authorized database endpoint/TLS, distinct signing secrets, cookie policy and exact frontend CORS origins. Keep credentials untracked. See [Architecture](architecture.md#configuration-contract) for names and responsibilities.
 
-   ```powershell
-   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-   ```
+For frontend Vite, a non-secret API setting may be placed in a local untracked environment file:
 
-   Configure the authorized database connection, backend signing secrets, cookie settings, and allowed frontend origins. Never commit or paste actual credentials into documentation. Do not execute the numbered SQL files as an automatic setup step.
+```dotenv
+VITE_API_BASE_URL=http://localhost:8000/api
+```
 
-3. Start the two application services:
+Vite reads it at build/startup time. Restart the dev server after changes; rebuild for a different hosted API. Never include database or backend secrets in frontend variables.
 
-   ```bash
-   docker compose up --build
-   ```
+**Do not run the numbered SQL sequence as automatic setup.** Obtain the authorized target's schema/migration state first. The current shared dataset must be preserved; see [Database Design](database_design.md#safe-database-change-process).
 
-   Stop them with:
+## Option A: Docker Compose
 
-   ```bash
-   docker compose down
-   ```
+From `CATMS-Backend`:
 
-   The Compose file starts **backend and frontend only**. It does not create/reset Neon, run SQL migrations, or start a local `postgres` service. There is no project database-volume reset command.
+```bash
+docker compose up --build
+```
 
-4. Current endpoints:
+Stop the application services with:
 
-   - **Frontend/Nginx**: `http://localhost:5173`
-   - **FastAPI API**: `http://localhost:8000/api` by default
-   - **Swagger Docs**: `http://localhost:8000/docs`
-   - **OpenAPI JSON**: `http://localhost:8000/api/openapi.json`
-   - **Database**: The external endpoint configured for the backend, not an automatically available `localhost:5432` service.
+```bash
+docker compose down
+```
 
-The frontend Docker build currently falls back to `http://localhost:8000/api`: frontend environment files are excluded, and no API-URL build argument is configured. This is unsuitable as a hosted-site address. See [System Architecture](architecture.md) before preparing deployment. Do not run Vite and Compose's frontend on the same host port simultaneously.
+The current services are backend and frontend only. No SQL migration, seed, database reset or PostgreSQL volume is included. Source is copied into the images; rebuild changed services to run new code rather than assuming hot reload.
 
----
+| Component | Default local address |
+| --- | --- |
+| Frontend/Nginx | `http://localhost:5173` |
+| API | `http://localhost:8000/api` |
+| Swagger | `http://localhost:8000/docs` |
+| OpenAPI JSON | `http://localhost:8000/api/openapi.json` |
+| PostgreSQL | External configured endpoint; not an automatically available localhost service. |
 
-### Option 2: Component-Level Local Setup
+Do not run the Vite server and Compose frontend on the same port. The Docker frontend excludes `.env` and `.env.local` and has no API-address build argument; its localhost fallback suits the local browser arrangement, not cloud hosting. Review other environment filenames before packaging. Nginx is a SPA static server, not an API reverse proxy.
 
-Use separate terminals for the backend and frontend.
+## Option B: Local application terminals
 
-For a fresh backend checkout, create a virtual environment; otherwise use the existing one. PowerShell example, from `CATMS-Backend`:
+From `CATMS-Backend`, create a virtual environment only if one is not already available:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Prepare backend configuration as above before starting Uvicorn. Startup opens the configured database connection; choose the authorized target first.
+Configure the target before starting: application startup opens the database pool.
 
-From `CATMS-Frontend`:
+From `CATMS-Frontend` in another terminal:
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Set a non-secret `VITE_API_BASE_URL` for local Vite when needed. The default is `http://localhost:8000/api`. Restart the dev server after changing configuration.
+Use `npm ci` for a fresh/dependency-changed checkout; an already installed environment does not require reinstalling on every edit.
 
-Service-specific references:
+## Verification levels
 
-- **Backend**: [CATMS-Backend README](https://github.com/datanexus-cs3043/CATMS-Backend)
-- **Frontend**: [CATMS-Frontend README](https://github.com/datanexus-cs3043/CATMS-Frontend)
-- **Database**: [Database Design & Guidelines](database_design.md)
-
----
-
-## Testing & API Verification
-
-### Static and Build Checks
-
-From `CATMS-Frontend`, after dependencies are already installed:
+From the frontend with dependencies installed:
 
 ```powershell
 .\node_modules\.bin\tsc.cmd --noEmit --incremental false
@@ -111,30 +100,31 @@ npm run lint
 npm run build
 ```
 
-- **TypeScript**: Run separately; `npm run build` currently invokes Vite only.
-- **Lint**: Current ESLint configuration targets JS/JSX, not the TS/TSX application.
-- **Build**: Produces assets; success does not prove working authentication, API contracts, or database transactions.
-- **Backend**: Syntax/import/route checks are preliminary checks. Database-dependent operations need separately approved runtime verification.
-- No project-wide automated test suite is established by these instructions. Do not install pytest/httpx or assume `pytest` validates the project merely because a previous guide listed them.
+- TypeScript checks are separate: the build script runs Vite only.
+- The current ESLint file pattern covers JS/JSX, not the application's TS/TSX; a lint pass is not comprehensive TypeScript lint coverage.
+- A build emits assets but does not exercise sessions, permissions or database transactions.
+- Backend syntax/import/OpenAPI checks are preliminary; avoid loading real credentials or connecting a shared database just to check syntax.
+- Existing SQL assertions are reviewed/run only on an approved target. No project-wide automated acceptance suite is implied by these commands.
 
-Current results and known failures are recorded in [Implementation & Integration Status](implementation_status.md).
+Current recorded results and limitations belong in [Implementation Status](implementation_status.md).
 
-### Interactive API Verification
+### Full-stack QA
 
-On an explicitly approved development target:
+On an approved synthetic test environment:
 
-1. Check the database-dependent `/api/health` response. Root metadata reporting `online` is not a database-health check.
-2. Use `/docs` or `/api/openapi.json` to inspect actual methods, request fields, and response schemas.
-3. Use authorized test accounts and verify role/ownership denial as well as allowed behavior. Do not include tokens, passwords, or patient data in logs or review messages.
-4. For routes protected by CSRF, obtain a token from `GET /api/auth/csrf` and include `X-CSRF-Token` with the authenticated request. Selected doctor create/update helpers now do this; generic frontend mutation helpers still do not. Do not assume every form inherits the corrected helper.
-5. Confirm real API and database results. Browser-local mock/database fallback and demo sessions have been removed; failed requests or empty screens after swallowed errors are not successful Neon transactions.
+1. Check `/api/health` for database connectivity and inspect actual methods/fields in OpenAPI.
+2. Confirm login with username and account email, session restoration, logout and password change. Protected non-auth writes use the shared CSRF interceptor. Direct API tools must obtain `/api/auth/csrf` and send `X-CSRF-Token` with the authenticated request.
+3. Run staff registration with/without portal access, including collision and failed-contact rollback.
+4. Exercise normal/walk-in booking, overlap denial, cancellation/rescheduling and date/time round trips. Verify scheduling remains unavailable to patients.
+5. Record care, complete the visit, generate one invoice and record a partial receipt. Confirm treatments/items lock after invoicing and totals persist after refresh.
+6. Exercise covered/uncovered claims, pending reservations, partial approvals and rejection after the approved trigger migration. Approval must not silently become a receipt.
+7. Reconcile all five report totals and filter scopes, then inspect native print/save-as-PDF output.
+8. Repeat own/other patient, doctor and branch denial cases; check loading/errors, duplicate clicks, route refresh and stale responses.
 
-Completion/cancellation API integration, patient-receipt workflows, automatic billing reconciliation and several frontend contracts remain unresolved. Corresponding SQL extensions/routines now exist, but their deployment and application integration are not established by file presence. PDF report viewing/download is deferred; no renderer or route is selected. See [Database Design](database_design.md) and [Roles, Patient Self-Service & Report Output](roles_and_reports.md).
+For an unknown receipt outcome, inspect the existing ledger before retrying. Do not create a second payment merely to test recovery.
 
----
+Record source SHAs, database migration/version, role, steps and expected/actual outcomes. Share sanitized evidence, not patient details, passwords, cookies or raw connection logs. The acceptance checklist in [Implementation Status](implementation_status.md#team-acceptance-handoff) is the common handoff record.
 
-## Team Collaboration & Git Standards
+## Change handoff
 
-Use [GitHub Collaboration & Git Conventions](github_guidelines.md) for the draft collaboration guidance. Select one agreed correction, record its expected behavior, make a focused change, verify at the appropriate level, and update the affected document. A plan or documentation update does not itself approve an application or database change.
-
-Before cross-cutting integration, obtain the existing owners' handoff, refresh the current PR/diff and agree the selected contract and reviewer. Record implementation, review, documentation and integration as distinct contributions. Do not infer task ownership or permission to start all deferred patient/report work from this guide.
+Select a coherent workflow, review current teammate changes, agree the contract, implement and verify in proportion to risk, and update the affected shared document. Record application implementation, schema application, review and runtime acceptance separately. A documentation change does not grant permission to migrate shared Neon or release main.

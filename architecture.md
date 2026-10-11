@@ -1,124 +1,107 @@
-# System Architecture - MedSync / CATMS
+# System Architecture — MedSync / CATMS
 
-## Architectural Overview
+## Layers and request flow
 
-MedSync / CATMS follows a multi-tier client-server architecture: a React browser application, a Python FastAPI REST API, and a PostgreSQL database hosted on Neon. The current Docker Compose file starts the two application services; it does not provision PostgreSQL.
+MedSync uses a React browser client, a FastAPI REST API and an external PostgreSQL database. The API owns authentication, permissions and business operations; PostgreSQL owns relational constraints and the stored financial/lifecycle rules. There is no ORM or browser-local database.
 
-**Source review: 2026-10-08, Asia/Colombo.** Backend `1405700`, frontend `018d7f3`; deployment/runtime equivalence was not checked in this documentation pass.
+Source baseline: **12 October 2026**, backend `development@4f22ab4`, frontend `development@6f2333d`. See [Implementation Status](implementation_status.md) for verification and release boundaries.
 
 ```mermaid
-graph TD
-    Frontend[CATMS-Frontend: Vite dev server or Nginx] -->|Serves application assets| Browser[Web browser: React client]
-    Browser -->|HTTP REST requests with credentials| Backend[CATMS-Backend: FastAPI]
-    Backend -->|psycopg3 asynchronous SQL| Database[(PostgreSQL on Neon)]
+flowchart LR
+    Assets["Vite / Nginx / Vercel"] -->|Application assets| Browser["React browser client"]
+    Browser -->|HTTPS JSON, session cookie, CSRF header| API["FastAPI / Uvicorn"]
+    API -->|Parameterized SQL and explicit transactions| DB[("PostgreSQL / Neon")]
 ```
 
-Browser-local mock/database fallback and demo sessions have been removed. A failed API request must remain an error, not become simulated success. [Implementation & Integration Status](implementation_status.md) records remaining contract and verification boundaries.
+### Frontend
 
----
+- React 19, TypeScript, Vite, React Router and Axios.
+- Application CSS and manually defined utility classes; no configured Tailwind generation plugin.
+- `AuthContext` confirms the session with the API; protected routes and menus control presentation, not server permissions.
+- The shared Axios client sends credentials and attaches `X-CSRF-Token` to non-auth state-changing requests. A recognized CSRF rejection can refresh the token and retry once; network/server failures are not a general mutation-retry mechanism.
+- Session changes clear CSRF/read state. Generation checks stop an earlier session's pending token from populating the new session.
+- Simultaneous equivalent reads are coalesced in memory, not retained as a persistent medical-record cache. Acknowledged writes invalidate pending-read reuse.
+- Domain screens distinguish pending, failed and empty results. Selected forms prevent duplicate submissions and ignore stale responses. Shared in-page dialogs replace browser alert/confirm/prompt workflows.
+- Payment handling distinguishes a rejected request, an acknowledged receipt with failed refresh, and an unknown write outcome. Reconciliation comes before another payment attempt.
 
-## Component Breakdown
+### API
 
-### 1. Presentation Layer (`CATMS-Frontend`)
+- Python 3.11, FastAPI, Uvicorn and Pydantic.
+- Psycopg 3 `AsyncConnectionPool`, asynchronous parameterized SQL and dictionary rows.
+- The pool uses autocommit for ordinary statements; multi-statement mutations explicitly enter transactions. Row/table locks must remain inside the transaction covering the whole operation.
+- Argon2id hashing with legacy bcrypt verification; hashing and verification run off the event loop.
+- PyJWT signs access tokens. Login sets an HttpOnly session cookie and also returns a bearer token; do not log or publish either.
+- Protected dependencies recheck current account/profile authority. Role, branch, doctor relationship and patient ownership are enforced separately.
+- Startup initializes the database pool. `/api/health` checks database connectivity; root metadata alone does not prove database health.
 
-- **Framework & Language**: React 19, TypeScript, and Vite.
-- **Styling**: Application CSS and manually defined utility classes. Tailwind-style class names appear in components, but no Tailwind dependency or generation plugin is configured in the current project.
-- **State & Routing**: React Router v7, centralized `AuthContext`, and `ProtectedRoute`. These control client navigation; server-side authorization remains the API's responsibility.
-- **HTTP Client**: Axios with `withCredentials: true` for cookie-authenticated requests.
-- **Production Build**: `node:24-alpine` compiles the assets, then `nginx:alpine` serves them. The configured build runs Vite, not a separate TypeScript check.
-- **Port Mapping**: Compose maps Nginx container port 80 to host port 5173. The local Vite dev server also normally uses 5173; it is a different execution mode.
+### Database
 
-#### Key UI Modules
+PostgreSQL is hosted externally on Neon. The source targets PostgreSQL 16+. The current SQL baseline defines 22 tables, six views, eleven functions, five procedures and eleven triggers. Those counts describe source objects, not the current cloud installation.
 
-- **App Shell**: Shared navigation and role-specific routes.
-- **Authentication**: Cookie-confirmed login/session UI. Public self-registration is not implemented by the backend.
-- **Patients & Doctors**: Directory, detail, profile, and registration/management interfaces.
-- **Appointments & Consultations**: Booking, appointment details, consultation notes, and treatment interfaces.
-- **Billing & Insurance**: Invoice, payment, policy, coverage, and claim pages.
-- **Branches, Staff & Reports**: Operational administration and management dashboards.
+Lifecycle procedures and financial triggers support appointment transitions, invoice generation and receipt synchronization. Two report handlers query views; other reports use scoped joins/aggregations. The full report API is not simply a wrapper around all six views.
 
-These interfaces exist in source; their presence does not establish that all corresponding real-API workflows work. There is no longer an implicit `localDb.ts` fallback. Selected doctor writes obtain CSRF tokens; generic mutation helpers and several patient/billing/report contracts remain incomplete.
+[Database Design](database_design.md) documents object dependencies, the treatment bridge, receipt ledger and the unapplied insurance migration.
 
----
+## Domain contracts
 
-### 2. Application & API Layer (`CATMS-Backend`)
+All paths below are relative to the default `/api` prefix. Consult the running backend's OpenAPI for full schemas and optional parameters.
 
-- **Runtime**: Python 3.11 in the current Docker image.
-- **Framework**: FastAPI with Uvicorn as the ASGI server.
-- **Data Access**: Direct asynchronous SQL using `psycopg3` and `AsyncConnectionPool`, with `dict_row` results and `autocommit=True`.
-  - Multi-statement mutations use explicit transactions through `database_mutation`.
-  - Autocommit does not group separate statements into one transaction. Locks must be held within the relevant explicit transaction.
-- **Authentication & Security**:
-  - `argon2-cffi` supplies Argon2id hashing; authentication code also supports legacy bcrypt verification.
-  - **PyJWT**, not `python-jose`, encodes and verifies JWTs.
-  - The login route sets an HttpOnly cookie. Its Secure and SameSite behavior is configuration-dependent.
-  - Protected session dependencies recheck current account/profile authority rather than trusting stale JWT role/link claims alone.
-  - Protected mutation routes use CSRF verification through the `X-CSRF-Token` header.
-  - The five declared roles are `admin`, `branch_manager`, `doctor`, `receptionist_cashier`, and `patient`. Record ownership and branch checks are additional controls.
-- **Port Mapping**: Container port 8000; Compose exposes it on host `PORT`, default 8000.
+| Area | Main contracts and behavior |
+| --- | --- |
+| Authentication | `/auth/login`, `/auth/logout`, `/auth/me`, `/auth/csrf`; username or account email under the existing JSON `username` key. No public `/auth/register`. |
+| Patient records | `/patients`; nested appointments, invoices, insurance and emergency contacts. Optional portal provisioning is part of staff registration, not public sign-up. |
+| Scheduling | `/appointments`; complete/cancel, emergency and reschedule actions. Patient scheduling mutations are not permitted. |
+| Clinical records | `/appointments/{id}/notes`, `/notes/{id}`, `/appointments/{id}/treatments`; multiple captured-price treatment rows. |
+| Billing | `POST /invoices/generate` with `appointment_id`; invoice/items reads; issued charge items cannot be edited through item-write routes. |
+| Patient receipts | `/patient-payments`, `/invoices/{id}/patient-payments`; authorized receipt writes call `sp_record_patient_payment`. |
+| Doctor compensation | `/doctor-payments`, legacy `/payments` and `/invoices/{id}/payments`; distinct from receipts. |
+| Insurance | `/insurance/providers`, `/insurance/policies`, `/insurance/coverage`, `/insurance/claims`. |
+| Administration | `/branches`, `/staff`, `/doctors`, `/specialties`, `/treatments`, `/treatment-categories`, `/users`. |
+| Reports | Five management-only `/reports` GET routes; definitions in [Roles and Reports](roles_and_reports.md). |
 
-Selected frontend doctor create/update requests attach user-bound CSRF tokens; generic post/put/delete helpers still omit them. Current session revalidation improves stale-authority handling but does not settle the broader account-link model or final permission matrix. The existence of guards is not a complete security assessment. The [five-role responsibility proposal](roles_and_reports.md) distinguishes intended access from current routes.
+## Execution and hosting
 
-#### Domain API Modules & Endpoints
+### Local Compose
 
-All domain prefixes below are under the default `/api` prefix.
+`CATMS-Backend/compose.yaml` builds the backend plus the sibling frontend repository.
 
-| Module | Current route families and boundaries |
-| :--- | :--- |
-| **Authentication & Users** | `/auth/login`, `/auth/logout`, `/auth/me`, `/auth/csrf`, and `/users`. No `/auth/register` route. |
-| **Patients** | `/patients`, patient-related appointments/invoices/insurance, and nested emergency contacts. |
-| **Doctors & Specialties** | `/doctors`, related resources, `/specialties`, and doctor-specialty assignments. |
-| **Appointments & Notes** | `/appointments`, emergency/reschedule actions, nested notes, and `/notes/{note_id}`. Complete/cancel API actions still return 501, despite SQL lifecycle definitions. |
-| **Treatments** | `/treatment-categories`, `/treatments`, and `/appointments/{appointment_id}/treatments`; the API retains a single-treatment contract while SQL now also defines an appointment-treatment bridge. |
-| **Branches & Staff** | `/branches`, branch-related resources, and `/staff`. |
-| **Invoices & Items** | `/invoices` and `/invoices/{invoice_id}/items`. CRUD is present; automatic generation/reconciliation is not established. |
-| **Doctor Compensation** | `/invoices/{invoice_id}/payments` and `/payments/{payment_id}`. These operate on `doctor_payment`, not patient receipts. There is no `/api/billing` router. |
-| **Insurance** | `/insurance/providers`, `/insurance/policies`, `/insurance/coverage`, and `/insurance/claims`. |
-| **Operational Reports** | Five admin/manager `/reports` routes execute SQL against base tables; they do not call the six reporting views. No PDF delivery implementation was found. |
+- Backend: Python image, container port 8000, host `PORT` default 8000.
+- Frontend: Node 24 builder, Nginx serving compiled assets on container port 80, host port 5173.
+- No PostgreSQL service, database volume or automated SQL migration step.
+- `depends_on` specifies order, not a database/API readiness health check.
+- Nginx supplies SPA route fallback, not an `/api` reverse proxy.
+- Frontend Docker builds exclude `.env` and `.env.local`, and no API-URL build argument is defined. Its default browser API address is `http://localhost:8000/api`. A container hostname such as `backend` is not a browser-reachable API address. Review other environment filenames before packaging; they are not all covered by those two exclusions.
 
----
+### Hosted topology
 
-### 3. Data Storage Layer (`PostgreSQL` / `Neon`)
+The current reported main deployment uses Vercel for the frontend, Azure App Service Linux for Python, and Neon for PostgreSQL. The backend deployment workflow triggers on pushes to `main` and supports manual dispatch; it uses Azure login secret references/OIDC rather than embedding credentials. It is not a development/PR acceptance-test gate.
 
-- **Cloud Hosting**: The team uses Neon for the shared PostgreSQL database.
-- **Compatibility Target**: Repository SQL headers target PostgreSQL 16+. The deployed server version was not checked in this documentation review.
-- **Schema & Evaluation Artifacts**: Numbered files organize tables, constraints, indexes, views, functions, procedures, triggers, seeds and SQL checks. The 20-table base is extended in `05_views.sql` with appointment status, `appointment_treatment` and `patient_payment` before view definitions; later files define routines and triggers.
-- **Deployment Evidence**: Repository definitions and cloud objects must be compared separately. Do not recreate extensions from a base-file-only reading or assume their presence means they are deployed. `10_tests.sql` remains a placeholder.
+The frontend contains a Vercel rewrite to `/index.html` for client-side navigation/refresh. Vite's API address is compiled at build time, so configuration changes require a new build. Azure must install dependencies into its runtime environment; an installation on a GitHub runner alone is insufficient. The configured startup command is:
 
-Refer to [Database Design & Guidelines](database_design.md) for schema limits, artifact status, and safe synchronization.
+```text
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
-### Deferred Report Output
+Hosted main and the development candidate are separate. Current deployed SHAs, cloud settings and browser operation were not checked for this documentation refresh.
 
-Future PDF viewing/downloading should consume the same agreed, server-authorized dataset as the selected on-screen report. Apply role/branch scope before rendering; PDF delivery must not become a wider-access data source. Report definitions, filters and totals come before renderer/library selection. This is a documented requirement, not an implemented component; see [Report Output](roles_and_reports.md#required-reports-and-pdf-output--deferred).
+## Configuration contract
 
----
+Use local untracked configuration or the hosting platform's environment settings. Never put backend secrets in `VITE_*` variables: frontend values are public build output.
 
-## Containerization & DevOps Setup
+| Variable | Responsibility |
+| --- | --- |
+| `DATABASE_URL` | Preferred backend PostgreSQL connection string; authorized endpoint and TLS configuration. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Backend fallback connection components; do not provision a database. |
+| `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_POOL_TIMEOUT` | Validated connection-pool bounds and wait timeout. |
+| `ENVIRONMENT` | Defaults to `development`; use `production` or `prod` to activate production safety checks. |
+| `JWT_SECRET_KEY`, `CSRF_SECRET_KEY` | Backend-only, explicitly configured distinct signing secrets. Production rejects built-in defaults or values shorter than 32 trimmed characters. |
+| `COOKIE_SECURE`, `COOKIE_SAMESITE` | HTTPS/site cookie policy; production requires Secure, and SameSite=None requires Secure in every environment. |
+| `FRONTEND_URLS` | Comma-separated allowed CORS origins, including each actual frontend origin, without route paths. |
+| `VITE_API_BASE_URL` | Public browser API URL including `/api`; development fallback is localhost. |
+| `PORT` | Backend/Compose port configuration; current service uses 8000. |
 
-`CATMS-Backend/compose.yaml` builds the backend and the sibling `CATMS-Frontend` repository.
+Production checks depend on the environment being explicitly selected; they do not certify current cloud settings. Cross-origin login requires compatible cookies, exact allowed origins and credentialed requests. CORS is not a replacement for server authorization or CSRF protection.
 
-### Network Topology
+## Report output
 
-- **Services**: `backend` and `frontend` only. There is no `postgres` service, database volume, or database readiness health check in this Compose file.
-- **Database Connection**: The backend reads its environment from `.env` and connects to the configured external database.
-- **Startup**: `frontend` declares `depends_on: backend`; no health-check condition verifies API/database readiness.
-- **Browser API Address**: Browser requests need a browser-reachable API URL. The Compose service name `backend` is not a public browser hostname.
-- **Nginx**: The current configuration provides SPA route fallback, not an `/api` reverse proxy.
-- **Frontend Configuration**: Vite reads `VITE_API_BASE_URL` at build time. The current Docker build excludes frontend `.env` and `.env.local` and exposes no build argument for that value. A hosted API address needs a deliberate build/configuration change; setting a runtime Nginx environment variable alone does not update compiled assets.
-
----
-
-## Environment Variables
-
-Never publish actual credentials or server secrets. Frontend `VITE_*` values are included in browser assets and must not contain secrets.
-
-| Variable | Purpose / Current behavior |
-| :--- | :--- |
-| `DATABASE_URL` | Preferred backend connection string. Use the authorized Neon endpoint and required TLS options; never place it in frontend configuration. |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Backend fallback connection components when `DATABASE_URL` is not set. They do not create a local database. |
-| `DB_POOL_MIN_SIZE`, `DB_POOL_MAX_SIZE`, `DB_POOL_TIMEOUT` | Backend connection-pool configuration. |
-| `PORT` | Compose host mapping for backend port 8000; defaults to 8000. |
-| `JWT_SECRET_KEY`, `CSRF_SECRET_KEY` | Backend-only signing secrets; replace development defaults before deployment. |
-| `COOKIE_SECURE`, `COOKIE_SAMESITE` | Cookie transport/site policy; configure for the actual HTTPS and frontend/API deployment arrangement. |
-| `FRONTEND_URLS` | Backend's comma-separated allowed CORS origins. |
-| `VITE_API_BASE_URL` | Browser API base URL, including `/api`; current fallback is `http://localhost:8000/api`. |
+The frontend prepares the loaded report snapshot and opens the native browser print dialog. The user can print or save it as PDF. There is no backend PDF route or automatic downloadable PDF response. Export uses the loaded filters and escaped dynamic text; browser page breaks, long tables and totals still need visual QA.

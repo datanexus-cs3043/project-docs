@@ -1,95 +1,91 @@
-# Roles, Patient Self-Service & Report Output - MedSync / CATMS
+# Roles, Patient Portal & Reports — MedSync / CATMS
 
-**Scope clarification: 2026-10-08, Asia/Colombo (UTC+05:30).** This document separates intended responsibilities, observed implementation and decisions still required. It is not a grant of API permissions or a claim of lecturer approval.
+Source baseline: **12 October 2026**, backend `development@4f22ab4`, frontend `development@6f2333d`. This document describes current source contracts, not unrestricted role grants or verified deployed permissions.
 
-## Five Application Roles
+## Five roles and action scopes
 
-| Role identifier | Responsibility |
-| :--- | :--- |
-| `admin` | Authorized system-wide administration, accounts, catalogues and oversight. |
-| `branch_manager` | Authorized operations, staff oversight and reporting within the assigned branch. |
-| `doctor` | Assigned appointments/patients, consultation records and clinical treatment recording. |
-| `receptionist_cashier` | Combined front-desk registration/scheduling and authorized billing/insurance operations. |
-| `patient` | Own authorized profile, appointments, bills and insurance information. |
+`admin`, `branch_manager`, `doctor`, `receptionist_cashier` and `patient` are the five login roles. Reception and cashier duties are combined. Server checks remain authoritative even when a control is hidden in the UI.
 
-Receptionist and cashier are **one login role**, not two. Patient is already declared in both applications; its incomplete functionality does not make it a newly added sixth role. Staff classifications and historical SRS actors such as nurse/insurance officer do not automatically create additional login roles.
+| Operation | Current API scope |
+| --- | --- |
+| Register a patient; optional new portal account | Admin, branch manager, receptionist/cashier; assigned-branch scope for non-admin staff. |
+| Patient directory/detail | Admin system-wide; front-desk/manager registration-branch scope; doctors need a related appointment; patients access their linked record, not the directory. |
+| Book, cancel, reschedule, emergency walk-in, complete | Staff roles only; branch checks and doctor-own appointment checks apply. Patients cannot perform scheduling mutations. |
+| Read own appointment/treatments | Linked patients; authorized scoped staff. |
+| Record/remove visit treatments | Staff roles, scoped to the appointment; doctors only their own visits. Cancelled or invoiced visits are locked. |
+| Consultation note read/write | Admin, branch manager and doctor under appointment scope; not receptionist/cashier or patient. Cancelled/invoiced visit edit guards apply. |
+| Generate invoice; record patient receipt | Admin, branch manager, receptionist/cashier; invoice-branch scope. |
+| Read invoices | Authorized scoped staff, doctor-own visits and patient-own invoices. Doctor invoice visibility does not grant receipt-ledger administration. |
+| Patient receipt history | Billing roles; patients may read receipt history for their own invoice. Doctors do not have the patient-receipt API role. |
+| Doctor compensation | Staff read under branch/doctor-own checks; writes restricted to admin, manager and receptionist/cashier. Not a patient receipt. |
+| Policy, coverage and claim writes | Admin, manager, receptionist/cashier with record/branch checks. Patients read own insurance; doctor claim reads are limited to own visits. |
+| Treatment/category, specialty and provider catalogue writes | Admin; catalogue visibility does not imply editing rights. |
+| Branch management | Admin creates/deletes and assigns managers; manager may update permitted own-branch fields. |
+| Staff management | Admin/manager; managers cannot manage privileged accounts or assign admin/manager roles/account links. |
+| Global account administration | Admin. Self-service account actions use dedicated protected routes, not global account rights. |
+| Management reports | Admin and branch manager only; managers cannot select another branch. |
 
-The submitted SRS separates several staff responsibilities and leaves detailed permissions open. The October 8 staff feature reference also separates reception/cashier and omits patient. The matrix below consolidates that reference and adds patient scope; it is a **review proposal**, not implemented or universally approved access. A checkmark must not be interpreted as unrestricted create/read/update/delete.
+This table summarizes the important workflows, not every endpoint's CRUD behavior. Patient profile/contact update endpoints enforce record access, but the current patient update schema is broader than a contact-only allowlist. Field-level self-editing and retention policy need final review; do not claim stricter limits than the API implements. Manager consultation-note authoring is also an existing API permission, not merely read-only; confirm that clinical policy during acceptance rather than describing a desired restriction as enforced.
 
-## Normalized Responsibility Matrix — Proposed
+## Patient portal and scheduling
 
-Every permission is additionally subject to record ownership, branch/clinical scope, approved actions and history-retention rules. “Manage” is not permission to erase clinical or financial history.
+Public self-registration is not implemented. The sign-in page provides account help rather than sending an unsupported registration request.
 
-| Feature | Admin | Branch manager | Doctor | Receptionist / cashier | Patient |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| Dashboard | System oversight | Branch overview | Own practice | Front-desk/billing overview | Own care overview |
-| Patients | Authorized administration | Branch operations under centralized-record policy | Assigned clinical relationship | Registration/search and permitted demographic updates | Own profile only |
-| Appointments | Authorized administration | Branch coordination | Own roster and agreed clinical updates | Scheduling, coordination and staff walk-ins | Own history; booking/cancel/reschedule rights to agree |
-| Consultation notes | Authorized clinical oversight | Reference proposes View; need-to-know/action policy to agree | Notes for own assigned appointments | No clinical-note access | No raw notes by default; released own documents need a separate decision |
-| Treatments | Catalogue administration | Catalogue view | Select/record appointment treatments; not implied catalogue creation | Catalogue view | Service/pricing view; no clinical treatment authoring |
-| Invoices | Authorized administration | Branch view | Authorized own-appointment view | Approved invoice/billing operations | Own invoices/balances |
-| Payments | Authorized financial operations | Reference proposes View; actions to agree | Own compensation statement policy to agree | Approved patient-receipt work; payout rights considered separately | Own payment information; no payout administration |
-| Insurance | Authorized administration | Branch view | Relevant clinical/coverage view | Approved policy/claim processing | Own policy/coverage/claim information; no approval authority |
-| Staff | Authorized administration | Assigned-branch oversight with privileged-account restrictions | No staff administration | No staff administration | No access |
-| Branches | Authorized administration | Own-branch management/view | Own operational context | Own operational context | Necessary public clinic information only |
-| Reports | Authorized system reports | Branch-scoped management reports | Own-data reports proposed, not yet supported | Branch-operational/billing reports proposed, not yet supported | Own documents only; no global management reports |
-| User management | Authorized account administration | No global account administration | No global account administration | No global account administration | Own permitted profile only; no role/privilege editing |
+During **new staff-managed registration**, a portal username plus valid account email can create a linked account together with the patient and optional emergency contact. Omitting the portal option creates only the patient record. Existing records/accounts are not rewritten. Initial QA access follows the project's default-password policy; the interface instructs password change, but first-login rotation is not enforced.
 
-Combining reception/cashier duties does not combine all possible financial and clinical privileges. Catalogue treatment creation, appointment treatment recording, patient receipts and doctor compensation are different operations.
+Login accepts a trimmed, case-insensitive username or **account email** using the existing JSON `username` field. Demographic/staff contact email and account email are different records: editing a contact email does not necessarily change sign-in identity. New account writers check both identifiers against both account columns. Ambiguous legacy matches fail closed rather than selecting an arbitrary account.
 
-## Differences from Current Source
+Patients use their linked profile, appointment history, invoices and insurance information. Scheduling remains staff-managed; patient self-booking, cancellation and rescheduling are intentionally not enabled.
 
-Checkpoint: backend `1405700`, frontend `018d7f3`; see [Implementation Status](implementation_status.md).
+A central patient database does not mean universal cross-branch access. Doctors' patient-record access follows their appointment relationship; appointment, invoice and claim operations also enforce their own branch/doctor/ownership rules.
 
-| Topic | Observed source | Review needed before a change |
-| :--- | :--- | :--- |
-| Reports | API `REPORT_ROLES` and `/reports` UI allow only admin/branch manager; managers are branch-scoped. | Doctor-own/front-desk/billing reports require explicit datasets and server scopes, not just another menu entry. |
-| Manager consultation notes | Current note read/create/update/delete handlers allow admin, branch manager and doctor, with scope checks. | Reference proposes manager View only; agree clinical need-to-know, authoring and retention policy rather than assuming current writes are the desired rule. |
-| Doctor payments | Payment API lets doctors read their own compensation; writes are restricted to admin/manager/receptionist_cashier. | Reference's “no payments” is ambiguous. Separate own compensation visibility from patient receipts and payout administration. |
-| Patient booking | UI includes booking, but appointment POST is staff-only. Complete/cancel are implemented for staff roles (PR #13). | Agree patient actions, account ownership, lifecycle and concurrency before connecting controls. |
-| Branch context | Branch administration/list UI is restricted; staff/patient flows sometimes need limited lookup information. | A branch context requirement does not justify opening all branch/staff management endpoints. |
-| Patient profile | Own-record API checks and personal pages exist; generic writes omit CSRF and some nested URLs differ. | Confirm editable-field allowlists, ownership, correct methods/URLs and honest error handling. |
-| Doctor catalogue | Public backend directory reads coexist with a UI that excludes doctor-role directory navigation. | Distinguish navigation choices from intended public field/access policy. |
+## Appointment-to-billing rules
 
-Client routing/hiding buttons is not authorization. API queries and exports must enforce role, record and branch scope independently. Centralized patient records do not imply unrestricted clinical or financial access across branches.
+- Appointment states are Scheduled, Completed and Cancelled. Cancellation/completion act on Scheduled visits; rescheduling preserves history rather than overwriting it as an unrelated booking.
+- Record consultation/treatment evidence before completion. Invoice generation requires at least one captured treatment on a Completed visit.
+- Multiple treatments carry quantities and unit prices copied at recording time; later catalogue price changes do not silently alter the visit.
+- Generate one invoice per appointment. Issued items cannot be modified through item POST/PUT/DELETE routes.
+- Record receipts through `POST /api/invoices/{invoice_id}/patient-payments`, not legacy doctor-payment URLs. Derived totals/status cannot be edited directly.
+- If a receipt was acknowledged but refresh failed, refresh/reconcile without paying again. If its network/server outcome is unknown, inspect the ledger before retrying; the system does not claim automatic exactly-once payment delivery.
 
-## Deferred Patient Functionality
+The database ledger supports refund/adjustment records, but there is no dedicated public correction workflow claimed here. Do not correct an issued invoice by bypassing API protections.
 
-Patient implementation is **not being started in this documentation pass**. Preserve the existing pages and wait for an agreed owner handoff and a selected implementation phase.
+## Insurance interpretation
 
-1. Confirm account provisioning and a stable account-to-patient association. Public registration UI exists, but `/auth/register` is absent from the backend.
-2. Validate own-profile read, then agree editable contact/address fields and emergency-contact operations. Do not permit role, account-link or branch reassignment through self-editing.
-3. Validate own appointments and doctor/service browsing. Decide whether patients may book, cancel or reschedule, and connect only the approved actions to persisted lifecycle rules.
-4. Validate own invoices, balances and insurance information. Patient receipts, insurer settlement and doctor compensation remain separate.
-5. Check real persistence, CSRF on writes, clear loading/errors, missing links, and denial when another patient's ID is substituted. Do not claim success from an empty screen after a failed request.
+MedSync uses an explicit **per-policy/invoice (visit)** cap for each covered treatment. This is the project's bounded data model, not a claim about every insurer's contractual rules or regulatory compliance.
 
-Access to released clinical summaries or personal PDF documents is a separate permission/content decision. It does not grant patient access to staff management reports or unrestricted consultation notes.
+1. The policy belongs to the invoice's patient and must be active/valid for the invoice date for eligible non-rejected claims.
+2. Group repeated invoice lines by treatment before applying coverage percentage and `maximum_amount`; use issued prices, not today's catalogue price.
+3. Floor each treatment entitlement to cents. Missing, zero or invalid coverage does not grant a benefit; duplicate coverage rules fail closed.
+4. Pending claims reserve their requested amounts; Approved claims reserve approved amounts; Rejected claims reserve zero.
+5. Aggregate reservations must fit the policy's eligible amount for this invoice and the invoice-wide billed ceiling across policies.
+6. Partial approval preserves the original requested amount. A filed claim cannot move to another invoice/policy.
+7. Claim approval does not create insurer cash settlement, patient receipts or a balance reduction.
 
-## Required Reports and PDF Output — Deferred
+Safe rejection of legacy excessive/inactive-policy claims requires the new SQL trigger behavior. **Migration `20261012_insurance_claim_coverage.sql` is unapplied**; an old installed trigger can still reject an operation permitted by the new API. See [Database Design](database_design.md).
 
-The official project brief names five reports. **PDF generation for viewing and downloading is an additional delivery clarification recorded on October 8**, not an attributed official export requirement. Exact layouts/export formats were left open in the SRS.
+Annual benefit pools, waiting/preauthorization rules, automated insurer communication and historical coverage versioning are not modeled. Later policy-rule edits can affect subsequent validation/estimates; do not present estimates as frozen historical insurer decisions.
 
-| Report | Data/meaning that must be settled before export |
-| :--- | :--- |
-| Daily branch appointment summary | Branch/date/timezone and Scheduled/Completed/Cancelled counts. |
-| Doctor revenue | Doctor/branch/period and explicit billed-versus-collected revenue; do not substitute doctor payouts. |
-| Patients with outstanding balances | Patient/invoice grain, actual receipts, insurance treatment and non-duplicated totals. |
-| Treatments by category over a period | Recorded treatment quantity, relevant date and category, not merely catalogue size. |
-| Insurance versus out-of-pocket | Distinguish coverage, claimed/approved amounts, insurer settlement, actual patient payments and balances. |
+## Five management reports
 
-### Future implementation acceptance
+Routes below are GET endpoints under `/api/reports`. All support optional `from_date`, `to_date` and admin-selectable `branch_id`; managers remain on their assigned branch. Invalid reversed date ranges are rejected. Date bounds are inclusive.
 
-- Correct and authorize one report's data first; use the same definitions/filters for its on-screen results and PDF. Existing report URLs/fields do not all match the frontend.
-- Provide both authenticated inline viewing and attachment download of a valid `application/pdf` response, with a useful filename. Route design/rendering technology are not chosen here.
-- Include report title, applied period/filters, data scope, generated-at time with timezone, units/currency, totals and suitable page numbering. Long tables, empty results and page breaks must remain readable.
-- Apply server-side role/ownership/branch restrictions before querying/rendering. Never widen access through the PDF route or trust a client-selected role, patient or branch as authority.
-- Include only needed patient/financial details. Escape unsafe text for the chosen renderer; avoid unapproved persistent/public exports and shared-cache leakage of sensitive output.
-- Verify totals against known scenarios, table/PDF agreement, denied access, file validity and visual layout. A valid PDF alone does not prove correct report figures.
+| Route | Grain, period and principal fields |
+| --- | --- |
+| `/appointments-summary` | One branch/day; appointment date. `scheduled`, `completed`, `cancelled`, `total`. Optional `date` selects one day and overrides from/to. |
+| `/doctor-revenue` | Doctor/branch; invoice date. `appointment_count`, `total_revenue` (billed), `collected` (patient paid), `avg_revenue`. This is not doctor compensation or all scheduled visits. |
+| `/outstanding-balances` | Patient aggregate over matching outstanding invoices; invoice date. `total_outstanding`, `invoice_count`, `oldest_invoice_date`. The oldest date is within the selected invoices, not necessarily lifetime debt. |
+| `/treatments-by-category` | Treatment within category on Completed visits; appointment date. `count` is summed treatment quantity, `total_revenue` is captured treatment value, not cash collected or catalogue size. |
+| `/insurance-vs-out-of-pocket` | Totals over scoped invoices by invoice date. `invoiced_amount`, `insurance_approved_amount`, `patient_paid_amount`, `outstanding_amount`, compatibility `out_of_pocket_amount`. |
 
-Current source has five JSON report handlers and no inspected PDF generation/delivery implementation. SQL views exist, but those API handlers still query base tables. No PDF dependency, backend/frontend code or live database change is authorized by this document.
+`patient_paid_amount` is net patient ledger receipts. `out_of_pocket_amount` remains an alias of that amount for compatibility; it is **not** billed minus approved insurance. The UI's **estimated patient exposure** is billed minus approved claims and is labeled as an estimate, not a paid amount or settled balance. Report period filtering selects invoices/visits; it does not automatically turn current totals into an as-of-date financial history.
 
-## Collaboration and Review Gate
+Doctor-own and front-desk management reports are not enabled. Their record/statement access does not grant the global report routes.
 
-Existing owners should finish and hand over their selected work before cross-cutting correction. Confirm task/contract ownership, review current PRs, preserve useful code and correct one issue at a time. Record implementation, review, integration and documentation separately; neither commit/line counts nor merging another person's work establish feature authorship.
+## Print / Save as PDF
 
-This scope note does not assign members, approve a PR, authorize a migration or move the delivery deadline. See [Project Overview](project_overview.md), [Database Design](database_design.md) and [Implementation Status](implementation_status.md) for provenance and limits.
+The Reports page uses the loaded dataset and its applied filter snapshot, escapes dynamic export text and opens a native browser print window. Users select a printer or **Save as PDF**. Changing an unapplied filter does not relabel previously loaded data.
+
+There is no backend PDF endpoint, attachment response or automatic PDF file download. Keep this distinction in demos and user instructions. PDF creation depends on browser capability and popup/print permissions.
+
+Acceptance must check all five reports against known scenarios, screen/export totals, applied scope/period, empty/error states, long-table page breaks and readable headers/units. Browser print/PDF layout has not been certified at this source checkpoint.
