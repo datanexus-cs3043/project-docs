@@ -1,6 +1,6 @@
 # Roles, Patient Portal & Reports — MedSync / CATMS
 
-Source baseline: **12 October 2026**, backend `development@9e78cef`, frontend `development@2a941f6`. This document describes current source contracts, not unrestricted role grants or verified deployed permissions.
+Source baseline: **12 October 2026**, backend `development@8255418`, frontend `development@0353f01`. This document describes current source contracts, not unrestricted role grants or verified deployed permissions.
 
 ## Five roles and action scopes
 

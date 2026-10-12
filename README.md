@@ -19,7 +19,7 @@ This repository documents the system's scope, architecture, database rules, oper
 
 ## Current documentation baseline
 
-Updated **12 October 2026, Asia/Colombo** against backend `development` at `9e78cef` and frontend `development` at `2a941f6`. These are source checkpoints, not a certification of the deployed application.
+Updated **12 October 2026, Asia/Colombo** against backend `development` at `8255418` and frontend `development` at `0353f01`. These are source checkpoints, not a certification of the deployed application.
 
 Both application repositories use the exact **`development`** branch for current integration. Hosted `main` is a separate release baseline; do not assume it contains development changes. An application release merge requires explicit release-owner authorization. See [Implementation Status](implementation_status.md) for the database verification record and outstanding application acceptance.
 

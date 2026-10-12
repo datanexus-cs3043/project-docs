@@ -16,7 +16,8 @@ These changes are local development work, not a hosted release. The new
 container only; **shared Neon was not accessed or changed during this pass**.
 No main merge or deployment occurred. Fresh seed scenarios were improved without
 replaying them over existing data. The earlier checkpoint below is historical to
-this follow-up; final commit IDs are recorded when the candidate is committed.
+this follow-up. Final application checkpoints are backend **8255418** and frontend
+**0353f01**, both exact development, with four focused commits per application.
 
 Local verification includes fresh numbered SQL/seed checks, forward-migration
 validation, invalid direct-write scenarios, competing doctor-slot inserts and a
@@ -25,7 +26,7 @@ checks cover the selected patient, appointment and reporting paths. TypeScript a
 in-memory build checks do not replace browser, print-layout, load/uptime, comprehensive
 audit, inactivity-timeout, backup/restore or deployed-environment acceptance.
 
-## Checkpoint
+## Earlier dataset/directory checkpoint
 
 Updated **12 October 2026, Asia/Colombo (UTC+05:30)**. This replaces the older October 8 main-branch descriptions.
 
@@ -38,7 +39,7 @@ These are local development commits, not a verified hosted release. The 12 Octob
 
 **Implemented** below means the current source contains the workflow. **Acceptance pending** means actual role-scoped browser/API/PostgreSQL results are still required. Neither static checks nor a successful deployment job establish complete functionality.
 
-## Current source status
+## Source status at the earlier checkpoint
 
 | Area | Implemented in development | Remaining acceptance / limitation |
 | --- | --- | --- |

@@ -1,6 +1,6 @@
 # Original assignment coverage
 
-Reviewed 12 October 2026 against both applications' `development` working trees.
+Reviewed 12 October 2026 against backend `development@8255418` and frontend `development@0353f01`.
 Authority: **Project 1 - Clinic Appointment and Treatment Management System**, the
 original two-page assignment. Page 1 defines the clinic workflows; page 2 defines
 five reports and the database-design task. Useful additional features are retained.
