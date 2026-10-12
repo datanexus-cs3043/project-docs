@@ -1,6 +1,6 @@
 # Roles, Patient Portal & Reports — MedSync / CATMS
 
-Source baseline: **12 October 2026**, backend `development@4f22ab4`, frontend `development@6f2333d`. This document describes current source contracts, not unrestricted role grants or verified deployed permissions.
+Source baseline: **12 October 2026**, backend `development@9e78cef`, frontend `development@2a941f6`. This document describes current source contracts, not unrestricted role grants or verified deployed permissions.
 
 ## Five roles and action scopes
 
@@ -62,7 +62,7 @@ MedSync uses an explicit **per-policy/invoice (visit)** cap for each covered tre
 6. Partial approval preserves the original requested amount. A filed claim cannot move to another invoice/policy.
 7. Claim approval does not create insurer cash settlement, patient receipts or a balance reduction.
 
-Safe rejection of legacy excessive/inactive-policy claims requires the new SQL trigger behavior. **Migration `20261012_insurance_claim_coverage.sql` is unapplied**; an old installed trigger can still reject an operation permitted by the new API. See [Database Design](database_design.md).
+Safe rejection of legacy excessive/inactive-policy claims requires the new SQL trigger behavior. The matching function/trigger was validated and installed on the shared Neon target on 12 October 2026; every existing claim passed status-update revalidation. Competing-session and browser acceptance remain separate checks. See [Database Design](database_design.md).
 
 Annual benefit pools, waiting/preauthorization rules, automated insurer communication and historical coverage versioning are not modeled. Later policy-rule edits can affect subsequent validation/estimates; do not present estimates as frozen historical insurer decisions.
 

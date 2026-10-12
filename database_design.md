@@ -2,7 +2,7 @@
 
 ## Baseline and design intent
 
-Source reviewed **12 October 2026**, backend `development@4f22ab4`. The numbered SQL defines **22 tables, six views, eleven functions, five procedures and eleven triggers**, including extensions after the 20-table base.
+Source reviewed **12 October 2026**, backend `development@9e78cef`. The numbered SQL defines **22 tables, six views, eleven functions, five procedures and eleven triggers**. All relations now belong in `02_tables.sql`; supporting indexes belong in `04_indexes.sql` and report views in `05_views.sql`.
 
 The database separates identity, branch operations, clinical activity and financial events. Constraints, stored routines and transactions complement API checks; they do not replace application authorization. The submitted ER diagram remains a design reference requiring reconciliation with later extensions.
 
@@ -49,7 +49,7 @@ Identifiers generally use singular `snake_case`; retain established names such a
 
 The public receipt API records positive payments through `sp_record_patient_payment`. Ledger support for refund/adjustment types is **not** a claim that a dedicated correction UI/API is implemented. An uncertain payment outcome must be reconciled before recording another receipt.
 
-Insurance follows the explicit per-policy/invoice rules in [Roles and Reports](roles_and_reports.md). Annual entitlement, settlement and coverage-rule versioning are absent. The newest trigger migration is a release prerequisite, not an already installed rule.
+Insurance follows the explicit per-policy/invoice rules in [Roles and Reports](roles_and_reports.md). Annual entitlement, settlement and coverage-rule versioning are absent. The latest claim function/trigger was PostgreSQL-validated and installed on the authorized shared Neon target on 12 October. Concurrent-session acceptance is still pending.
 
 ## SQL artifact organization
 
@@ -57,15 +57,15 @@ These are review/setup artifacts, **not** an automatically executed deployment p
 
 | File | Content and operational caution |
 | --- | --- |
-| `01_database.sql` | Database creation and destructive table cleanup. Never run on the populated shared database as routine setup. |
-| `02_tables.sql` | Twenty base tables, keys and checks; not the complete extended schema. |
+| `01_database.sql` | Safe schema initialization; no CREATE DATABASE, destructive reset or table drops. Numbered fresh setup is still not a populated-database migration. |
+| `02_tables.sql` | All 22 tables, keys and checks, including treatment lines and patient receipts. |
 | `03_constraints.sql` | Adds the branch-manager relationship after mutually dependent tables exist. |
-| `04_indexes.sql` | Foreign-key/query lookup indexes and normalized specialty-name uniqueness using `LOWER(BTRIM(specialty_name))`. |
-| `05_views.sql` | Appointment status, treatment bridge, receipt ledger, supporting constraints/indexes and six views. Contains view drops; not a read-only report script. |
+| `04_indexes.sql` | Idempotent foreign-key/query indexes, treatment/receipt indexes, branch/date and doctor/date scheduling indexes, invoice-date lookup and normalized specialty-name uniqueness. |
+| `05_views.sql` | Six CREATE OR REPLACE report views without destructive drops. Doctor revenue counts invoiced visits; approved insurance totals count Approved claims only. |
 | `06_functions.sql` | Eleven functions for financial synchronization, appointment/treatment validation and claim/compensation rules. |
 | `07_procedures.sql` | `sp_record_patient_payment`, `sp_complete_appointment`, `sp_cancel_appointment`, `sp_reschedule_appointment`, `sp_generate_invoice`. |
 | `08_triggers.sql` | Eleven triggers, domain checks and `btree_gist` doctor/time exclusion enforcement. |
-| `09_seed_data.sql` | Fixed-ID sample data. Do not replay into an existing shared dataset or overwrite current accounts. |
+| `09_seed_data.sql` | Guarded, empty-schema Sri Lankan demonstration seed with generated identities, rolling dates and independently salted account hashes. Refuses populated targets; never resets sequences. |
 | `10_tests.sql` | Implemented assertions for lifecycle/schema readiness, sample data, treatment synchronization, ledger reconciliation, overlaps and required views. Not a placeholder and not proof it passed on a given target. |
 
 The six views are `v_branch_daily_appointment_summary`, `v_invoice_totals`, `v_doctor_revenue`, `v_outstanding_balances`, `v_treatment_category_usage` and `v_insurance_vs_out_of_pocket`. The API uses the branch-summary and outstanding views; other report routes use their own queries. Matching view and report names does not establish identical semantics.
@@ -76,11 +76,15 @@ The six views are `v_branch_daily_appointment_summary`, `v_invoice_totals`, `v_d
 | --- | --- | --- |
 | `20261008_specialty_name_uniqueness.sql` | Normalized specialty-name uniqueness. | Existing source migration; target installation must be checked before replay. |
 | `20261010_generate_invoice.sql` | Completed-visit invoice generation from captured treatments. | Existing source migration; verify target procedure definition. |
-| `20261012_insurance_claim_coverage.sql` | Replaces claim-validation function/trigger for coverage, reservations, immutable invoice/policy identity and legacy rejection handling. | **Committed, unapplied and not PostgreSQL-compiled at this checkpoint.** |
+| `20261012_insurance_claim_coverage.sql` | Replaces claim-validation function/trigger for coverage, reservations, immutable invoice/policy identity and legacy rejection handling. | PostgreSQL-validated and installed on the authorized shared target on 12 October 2026; competing-session checks remain pending. |
 
-The latest migration changes a function/trigger only; it does not delete, backfill or rewrite patient/financial records. Existing numbered claim definitions differ: replaying old functions/triggers after this migration would undo its rules. Apply approved migrations chronologically after their required baseline, on a separately authorized target.
+The latest migration changes a function/trigger only; it does not delete, backfill or rewrite patient/financial records. Numbered claim definitions now match this migration, so fresh setup and existing-target validation have the same coverage/reservation rules. Apply approved migrations chronologically after their required baseline, on a separately authorized target.
 
-A recorded **11 October QA reconciliation** established the extended schema and added synthetic linked data while preserving existing records. It predates the newest insurance migration and is not a fresh cloud inspection or a complete browser/API acceptance result. Account details and connection credentials are not part of this repository.
+An authorized **12 October data refresh** consolidated 24 branches to Colombo, Kandy and Galle, 22 insurers to six public reference names and 23 treatment groups to six service categories. Staff/patient/visit links were moved before extra branch rows were removed. Generated personal records were relabelled to coherent fictional Sri Lankan demonstration identities; original account identifiers and all passwords were preserved. Captured treatment prices, invoice amounts, patient receipts, doctor compensation and filed claim amounts were unchanged. A known original ENT coverage fixture was corrected to match its filed request. Existing claims were revalidated through the installed status-update trigger.
+
+The shared target now contains 45 patients, 22 doctors, 69 staff, 166 visits, 45 services, 43 invoices, 54 receipt-ledger entries, 32 policies and 22 claims. Counts describe linked data, not completed user acceptance. Redundant generated doctor/specialty pairs were corrected. Recovery snapshots were encrypted and kept outside repositories; credentials and account maps are not published.
+
+Public naming/format references and the fresh seed's fictional-data boundaries are described in the backend's `database/SEED_DATA.md`. Public insurer names do not establish real insurance benefits; clinic prices and coverage rules are illustrative LKR values. No real patient records or asserted SLMC registrations were imported.
 
 ## Transactions and concurrency
 

@@ -58,6 +58,12 @@ docker compose down
 
 The current services are backend and frontend only. No SQL migration, seed, database reset or PostgreSQL volume is included. Source is copied into the images; rebuild changed services to run new code rather than assuming hot reload.
 
+The October 12 public directory change requires both development applications:
+the frontend calls `/api/public/clinic-directory`, which older hosted backend builds
+do not contain. Database changes alone do not install that endpoint. Rebuild/run
+the development backend and frontend together, then check directory loading and
+admin catalogue/branch updates; no hosting or main-release step is implied.
+
 | Component | Default local address |
 | --- | --- |
 | Frontend/Nginx | `http://localhost:5173` |

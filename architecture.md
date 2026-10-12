@@ -4,7 +4,7 @@
 
 MedSync uses a React browser client, a FastAPI REST API and an external PostgreSQL database. The API owns authentication, permissions and business operations; PostgreSQL owns relational constraints and the stored financial/lifecycle rules. There is no ORM or browser-local database.
 
-Source baseline: **12 October 2026**, backend `development@4f22ab4`, frontend `development@6f2333d`. See [Implementation Status](implementation_status.md) for verification and release boundaries.
+Source baseline: **12 October 2026**, backend `development@9e78cef`, frontend `development@2a941f6`. See [Implementation Status](implementation_status.md) for verification and release boundaries.
 
 ```mermaid
 flowchart LR
@@ -21,6 +21,7 @@ flowchart LR
 - The shared Axios client sends credentials and attaches `X-CSRF-Token` to non-auth state-changing requests. A recognized CSRF rejection can refresh the token and retry once; network/server failures are not a general mutation-retry mechanism.
 - Session changes clear CSRF/read state. Generation checks stop an earlier session's pending token from populating the new session.
 - Simultaneous equivalent reads are coalesced in memory, not retained as a persistent medical-record cache. Acknowledged writes invalidate pending-read reuse.
+- The landing directory loads current branches, contacts, specialties and counts from `/api/public/clinic-directory`. It exposes no patient details, account data, staff contacts, manager IDs or licence numbers; failed loads have a retry state, not sample-data fallback.
 - Domain screens distinguish pending, failed and empty results. Selected forms prevent duplicate submissions and ignore stale responses. Shared in-page dialogs replace browser alert/confirm/prompt workflows.
 - Payment handling distinguishes a rejected request, an acknowledged receipt with failed refresh, and an unknown write outcome. Reconciliation comes before another payment attempt.
 
@@ -40,7 +41,7 @@ PostgreSQL is hosted externally on Neon. The source targets PostgreSQL 16+. The 
 
 Lifecycle procedures and financial triggers support appointment transitions, invoice generation and receipt synchronization. Two report handlers query views; other reports use scoped joins/aggregations. The full report API is not simply a wrapper around all six views.
 
-[Database Design](database_design.md) documents object dependencies, the treatment bridge, receipt ledger and the unapplied insurance migration.
+[Database Design](database_design.md) documents object dependencies, the treatment bridge, receipt ledger and the installed insurance validation and its remaining concurrency checks.
 
 ## Domain contracts
 
