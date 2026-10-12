@@ -62,9 +62,9 @@ These are review/setup artifacts, **not** an automatically executed deployment p
 | `03_constraints.sql` | Adds the branch-manager relationship after mutually dependent tables exist. |
 | `04_indexes.sql` | Idempotent foreign-key/query indexes, treatment/receipt indexes, branch/date and doctor/date scheduling indexes, invoice-date lookup and normalized specialty-name uniqueness. |
 | `05_views.sql` | Six CREATE OR REPLACE report views without destructive drops. Doctor revenue counts invoiced visits; approved insurance totals count Approved claims only. |
-| `06_functions.sql` | Eleven functions for financial synchronization, appointment/treatment validation and claim/compensation rules. |
+| `06_functions.sql` | Thirteen functions for financial synchronization, appointment/treatment validation, branch-manager/staff assignment and claim/compensation rules. |
 | `07_procedures.sql` | `sp_record_patient_payment`, `sp_complete_appointment`, `sp_cancel_appointment`, `sp_reschedule_appointment`, `sp_generate_invoice`. |
-| `08_triggers.sql` | Eleven triggers, domain checks and `btree_gist` doctor/time exclusion enforcement. |
+| `08_triggers.sql` | Thirteen triggers, finite-money/domain checks and `btree_gist` doctor/time exclusion enforcement. |
 | `09_seed_data.sql` | Guarded, empty-schema Sri Lankan demonstration seed with generated identities, rolling dates and independently salted account hashes. Refuses populated targets; never resets sequences. |
 | `10_tests.sql` | Implemented assertions for lifecycle/schema readiness, sample data, treatment synchronization, ledger reconciliation, overlaps and required views. Not a placeholder and not proof it passed on a given target. |
 
@@ -77,8 +77,9 @@ The six views are `v_branch_daily_appointment_summary`, `v_invoice_totals`, `v_d
 | `20261008_specialty_name_uniqueness.sql` | Normalized specialty-name uniqueness. | Existing source migration; target installation must be checked before replay. |
 | `20261010_generate_invoice.sql` | Completed-visit invoice generation from captured treatments. | Existing source migration; verify target procedure definition. |
 | `20261012_insurance_claim_coverage.sql` | Replaces claim-validation function/trigger for coverage, reservations, immutable invoice/policy identity and legacy rejection handling. | PostgreSQL-validated and installed on the authorized shared target on 12 October 2026; competing-session checks remain pending. |
+| `20261012_original_brief_integrity.sql` | Valid manager/staff assignment, direct doctor/branch and invoice-completion guards, finite monetary values, sign-in expression indexes and completed-treatment reporting view. | Validated only in isolated local PostgreSQL; unapplied on shared Neon. Fails on incompatible existing manager/visit/invoice history instead of repairing records automatically. |
 
-The latest migration changes a function/trigger only; it does not delete, backfill or rewrite patient/financial records. Numbered claim definitions now match this migration, so fresh setup and existing-target validation have the same coverage/reservation rules. Apply approved migrations chronologically after their required baseline, on a separately authorized target.
+The insurance migration changes a function/trigger only; it does not delete, backfill or rewrite patient/financial records. Numbered claim definitions match it. The later original-brief migration aligns the new guards/indexes and the treatment-usage view without data deletion or seed replay. Existing usage-view columns remain; `appointment_date` is appended so completed uninvoiced care can be counted by visit period while `invoice_date` remains the actual issue date, nullable before billing. Apply approved migrations chronologically after their required baseline, on a separately authorized target.
 
 An authorized **12 October data refresh** consolidated 24 branches to Colombo, Kandy and Galle, 22 insurers to six public reference names and 23 treatment groups to six service categories. Staff/patient/visit links were moved before extra branch rows were removed. Generated personal records were relabelled to coherent fictional Sri Lankan demonstration identities; original account identifiers and all passwords were preserved. Captured treatment prices, invoice amounts, patient receipts, doctor compensation and filed claim amounts were unchanged. A known original ENT coverage fixture was corrected to match its filed request. Existing claims were revalidated through the installed status-update trigger.
 

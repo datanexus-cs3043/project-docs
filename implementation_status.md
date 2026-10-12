@@ -1,5 +1,30 @@
 # Implementation & Integration Status — MedSync / CATMS
 
+## Original-assignment alignment follow-up
+
+The 12 October follow-up compares the two-page original brief with the current
+development candidate, preserving additional features. [Requirements Coverage](requirements_coverage.md)
+maps every primary workflow/report and database necessity separately from SRS
+performance/operational targets. The source corrections include shared patient,
+contact and insurance reads; safer patient validation/self-edit fields; appointment
+history/completion/recording controls; branch-manager assignment; report branch/date
+filters and category totals; clinic timezone; SQL assignment/completed-invoice guards,
+finite monetary values and completed-treatment usage including uninvoiced care.
+
+These changes are local development work, not a hosted release. The new
+`20261012_original_brief_integrity.sql` was exercised in an isolated PostgreSQL 16
+container only; **shared Neon was not accessed or changed during this pass**.
+No main merge or deployment occurred. Fresh seed scenarios were improved without
+replaying them over existing data. The earlier checkpoint below is historical to
+this follow-up; final commit IDs are recorded when the candidate is committed.
+
+Local verification includes fresh numbered SQL/seed checks, forward-migration
+validation, invalid direct-write scenarios, competing doctor-slot inserts and a
+failed multi-step transaction with full rollback. Source/isolated handler/component
+checks cover the selected patient, appointment and reporting paths. TypeScript and
+in-memory build checks do not replace browser, print-layout, load/uptime, comprehensive
+audit, inactivity-timeout, backup/restore or deployed-environment acceptance.
+
 ## Checkpoint
 
 Updated **12 October 2026, Asia/Colombo (UTC+05:30)**. This replaces the older October 8 main-branch descriptions.

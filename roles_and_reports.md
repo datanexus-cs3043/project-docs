@@ -9,7 +9,7 @@ Source baseline: **12 October 2026**, backend `development@9e78cef`, frontend `d
 | Operation | Current API scope |
 | --- | --- |
 | Register a patient; optional new portal account | Admin, branch manager, receptionist/cashier; assigned-branch scope for non-admin staff. |
-| Patient directory/detail | Admin system-wide; front-desk/manager registration-branch scope; doctors need a related appointment; patients access their linked record, not the directory. |
+| Patient directory/detail | Authorized front-desk/manager reads are cross-branch; registration branch is a filter, not a read boundary. Doctors need a related own-branch appointment; patients access their linked record, not the directory. |
 | Book, cancel, reschedule, emergency walk-in, complete | Staff roles only; branch checks and doctor-own appointment checks apply. Patients cannot perform scheduling mutations. |
 | Read own appointment/treatments | Linked patients; authorized scoped staff. |
 | Record/remove visit treatments | Staff roles, scoped to the appointment; doctors only their own visits. Cancelled or invoiced visits are locked. |
@@ -25,7 +25,7 @@ Source baseline: **12 October 2026**, backend `development@9e78cef`, frontend `d
 | Global account administration | Admin. Self-service account actions use dedicated protected routes, not global account rights. |
 | Management reports | Admin and branch manager only; managers cannot select another branch. |
 
-This table summarizes the important workflows, not every endpoint's CRUD behavior. Patient profile/contact update endpoints enforce record access, but the current patient update schema is broader than a contact-only allowlist. Field-level self-editing and retention policy need final review; do not claim stricter limits than the API implements. Manager consultation-note authoring is also an existing API permission, not merely read-only; confirm that clinical policy during acceptance rather than describing a desired restriction as enforced.
+This table summarizes the important workflows, not every endpoint's CRUD behavior. Patient self-updates are restricted to own contact details, email and address; staff demographic/contact writes retain registration-branch scope, and doctor directory access does not grant demographic editing. Emergency contacts and insurance information share the authorized cross-branch read contract. Manager consultation-note authoring is an existing API permission, not merely read-only; confirm that clinical policy during acceptance rather than describing a desired restriction as enforced.
 
 ## Patient portal and scheduling
 
@@ -37,12 +37,12 @@ Login accepts a trimmed, case-insensitive username or **account email** using th
 
 Patients use their linked profile, appointment history, invoices and insurance information. Scheduling remains staff-managed; patient self-booking, cancellation and rescheduling are intentionally not enabled.
 
-A central patient database does not mean universal cross-branch access. Doctors' patient-record access follows their appointment relationship; appointment, invoice and claim operations also enforce their own branch/doctor/ownership rules.
+A central patient database permits shared patient/emergency/insurance reads for authorized front-desk/manager roles. It does not mean unrestricted cross-branch writes or clinical/financial access. Doctors' patient-record access follows their appointment relationship; appointment, invoice and claim operations retain their own branch/doctor/ownership rules.
 
 ## Appointment-to-billing rules
 
 - Appointment states are Scheduled, Completed and Cancelled. Cancellation/completion act on Scheduled visits; rescheduling preserves history rather than overwriting it as an unrelated booking.
-- Record consultation/treatment evidence before completion. Invoice generation requires at least one captured treatment on a Completed visit.
+- Record consultation/treatment evidence before completion; further recording on a Completed unbilled visit is supported. Invoice generation requires at least one captured treatment on a Completed visit. A note-only visit needs its actual consultation/service charge recorded before invoicing.
 - Multiple treatments carry quantities and unit prices copied at recording time; later catalogue price changes do not silently alter the visit.
 - Generate one invoice per appointment. Issued items cannot be modified through item POST/PUT/DELETE routes.
 - Record receipts through `POST /api/invoices/{invoice_id}/patient-payments`, not legacy doctor-payment URLs. Derived totals/status cannot be edited directly.

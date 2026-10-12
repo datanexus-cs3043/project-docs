@@ -15,6 +15,7 @@ This repository documents the system's scope, architecture, database rules, oper
 | [Development Workflow](development_workflow.md) | Local setup, checks and a practical full-stack QA sequence. |
 | [GitHub Collaboration](github_guidelines.md) | Integration branches, focused commits, review and release boundaries. |
 | [Implementation & Integration Status](implementation_status.md) | Dated application checkpoints, completed source changes and remaining acceptance work. |
+| [Original Assignment Coverage](requirements_coverage.md) | Primary functional/database requirements, corrections, assumptions and separate SRS acceptance targets. |
 
 ## Current documentation baseline
 
